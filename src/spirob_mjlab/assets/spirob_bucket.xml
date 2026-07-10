@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mujoco model="SpiRob_Bucket">
+  <compiler angle="radian" inertiafromgeom="true" autolimits="true" />
+  <default>
+    <geom density="800" friction="0.5 0.01 0.001" rgba="0.85 0.25 0.15 1.0" contype="4" conaffinity="4" />
+    <site size="0.001" />
+  </default>
+  <worldbody>
+    <body name="bucket" pos="0 0 0">
+      <geom name="bucket_floor" type="box" size="0.030 0.030 0.002" pos="0 0 0.003" contype="4" conaffinity="4" />
+      <geom name="bucket_wall_f" type="box" size="0.030 0.003 0.025" pos="0 0.030 0.028" contype="4" conaffinity="4" />
+      <geom name="bucket_wall_b" type="box" size="0.030 0.003 0.025" pos="0 -0.030 0.028" contype="4" conaffinity="4" />
+      <geom name="bucket_wall_l" type="box" size="0.003 0.030 0.025" pos="-0.030 0 0.028" contype="4" conaffinity="4" />
+      <geom name="bucket_wall_r" type="box" size="0.003 0.030 0.025" pos="0.030 0 0.028" contype="4" conaffinity="4" />
+      <site name="bucket_site" type="sphere" size="0.005" rgba="1 0.5 0 1" pos="0 0 0.030" />
+    </body>
+  </worldbody>
+</mujoco>

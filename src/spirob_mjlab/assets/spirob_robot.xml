@@ -1,0 +1,930 @@
+<?xml version="1.0" ?>
+<mujoco model="SpiRob_RobotOnly">
+  <compiler angle="radian" inertiafromgeom="true" autolimits="true"/>
+  
+  
+  
+  <option timestep="0.0001" gravity="0.0 0.0 -9.81" integrator="implicit"/>
+  
+
+  
+  <visual>
+    
+    
+    <quality shadowsize="4096"/>
+    
+    
+    <map znear="0.005" zfar="20"/>
+    
+    
+    <scale connect="0"/>
+    
+  
+  </visual>
+  
+
+  
+  <default>
+    
+    
+    
+    <geom density="1200.0" margin="0" rgba="0.2 0.35 0.65 1.0" friction="0.5 0.1 0.011" contype="1" conaffinity="1"/>
+    
+    
+    <site size="0.001"/>
+    
+    
+    <joint damping="0.01" stiffness="0.2" limited="true"/>
+    
+
+    
+    
+    <default class="cable_pos">
+      
+       
+      <position ctrllimited="true" ctrlrange="0.14 0.29" kp="2500" kv="20" forcelimited="true" forcerange="-100 0"/>
+              
+    
+    </default>
+    
+
+    
+    
+    <default class="egg_mat">
+      
+      
+      <geom density="300" friction="1.2 0.05 0.005" rgba="0.97 0.93 0.80 1.0" solref="0.02 1" solimp="0.9 0.95 0.001" contype="2" conaffinity="3"/>
+      
+    
+    </default>
+    
+    
+    <default class="bucket_mat">
+      
+      
+      <geom density="800" friction="0.5 0.01 0.001" rgba="0.85 0.25 0.15 1.0" contype="4" conaffinity="4"/>
+      
+    
+    </default>
+    
+  
+  </default>
+  
+
+  
+  <asset>
+    
+    
+    <mesh name="link_001" file="meshes/link_001.stl"/>
+    
+    
+    <mesh name="link_002" file="meshes/link_002.stl"/>
+    
+    
+    <mesh name="link_003" file="meshes/link_003.stl"/>
+    
+    
+    <mesh name="link_004" file="meshes/link_004.stl"/>
+    
+    
+    <mesh name="link_005" file="meshes/link_005.stl"/>
+    
+    
+    <mesh name="link_006" file="meshes/link_006.stl"/>
+    
+    
+    <mesh name="link_007" file="meshes/link_007.stl"/>
+    
+    
+    <mesh name="link_008" file="meshes/link_008.stl"/>
+    
+    
+    <mesh name="link_009" file="meshes/link_009.stl"/>
+    
+    
+    <mesh name="link_010" file="meshes/link_010.stl"/>
+    
+    
+    <mesh name="link_011" file="meshes/link_011.stl"/>
+    
+    
+    <mesh name="link_012" file="meshes/link_012.stl"/>
+    
+    
+    <mesh name="link_013" file="meshes/link_013.stl"/>
+    
+    
+    <mesh name="link_014" file="meshes/link_014.stl"/>
+    
+    
+    <mesh name="link_015" file="meshes/link_015.stl"/>
+    
+    
+    <mesh name="link_016" file="meshes/link_016.stl"/>
+    
+    
+    <mesh name="link_017" file="meshes/link_017.stl"/>
+    
+    
+    <mesh name="link_018" file="meshes/link_018.stl"/>
+    
+    
+    <mesh name="link_019" file="meshes/link_019.stl"/>
+    
+    
+    <mesh name="link_020" file="meshes/link_020.stl"/>
+    
+    
+    <mesh name="link_021" file="meshes/link_021.stl"/>
+    
+  
+  </asset>
+  
+
+  
+  <worldbody>
+    <body name="robot_base" pos="0.0 0.0 0.09" euler="-1.5708 0 0">
+      
+
+      
+
+      
+      <body name="link_001" pos="0.0 0.0 0.22628" quat="0.0 0.0 -1.0 0.0">
+        
+        
+        
+        <joint name="j_001" type="hinge" axis="0 1 0" range="-0.001 0.001" damping="500" stiffness="5000"/>
+        
+        
+        <geom name="gmesh_001" type="mesh" mesh="link_001" group="1"/>
+        
+        
+        <site name="c0_001_s1" pos="-0.014043787134233146 0.0 0.003887071611887226"/>
+        
+        
+        <site name="c0_001_s2" pos="-0.013762963380968076 0.0 0.008989865749906121"/>
+        
+        
+        <site name="c1_001_s1" pos="0.014043787134233132 -1.7198678961845392e-18 0.0038870716118872286"/>
+        
+        
+        <site name="c1_001_s2" pos="0.013762963380968062 -1.6854769051284778e-18 0.008989865749906125"/>
+        
+
+        
+        <body name="link_002" pos="-9.62964972193618e-35 0.0 0.008584200393390806" quat="0.9999999999999989 0.0 6.464931505853048e-17 0.0">
+          
+          
+          <joint name="j_002" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.009151416593531596" stiffness="0.18302833187063192"/>
+          
+          
+          <geom name="gmesh_002" type="mesh" mesh="link_002" group="1"/>
+          
+          
+          <site name="c0_002_s1" pos="-0.012813076370858354 0.0 0.0060753376579252534"/>
+          
+          
+          <site name="c0_002_s2" pos="-0.012165259019073867 0.0 0.017846701535654565"/>
+          
+          
+          <site name="c1_002_s1" pos="0.012813076370858337 -1.5691492964802256e-18 0.006075337657925259"/>
+          
+          
+          <site name="c1_002_s2" pos="0.01216525901907385 -1.4898145518507268e-18 0.017846701535654572"/>
+          
+
+          
+          <body name="link_003" pos="0.0 0.0 0.019802434449997464" quat="0.9999999999999989 0.0 -1.310123454892192e-16 0.0">
+            
+            
+            <joint name="j_003" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.008374842566836545" stiffness="0.1674968513367309"/>
+            
+            
+            <geom name="gmesh_003" type="mesh" mesh="link_003" group="1"/>
+            
+            
+            <site name="c0_003_s1" pos="-0.011797748755937759 0.0 0.005644371041508834"/>
+            
+            
+            <site name="c0_003_s2" pos="-0.0111958856651136 0.0 0.016580708926176885"/>
+            
+            
+            <site name="c1_003_s1" pos="0.011797748755937735 -1.4448075251103829e-18 0.005644371041508832"/>
+            
+            
+            <site name="c1_003_s2" pos="0.011195885665113576 -1.371100554340109e-18 0.016580708926176885"/>
+            
+
+            
+            <body name="link_004" pos="0.0 0.0 0.018397707889558357" quat="0.9999999999999989 0.0 -2.838774573256556e-16 0.0">
+              
+              
+              <joint name="j_004" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.007664167323436269" stiffness="0.15328334646872538"/>
+              
+              
+              <geom name="gmesh_004" type="mesh" mesh="link_004" group="1"/>
+              
+              
+              <site name="c0_004_s1" pos="-0.010854445501043577 0.0 0.0052439759315539925"/>
+              
+              
+              <site name="c0_004_s2" pos="-0.010295276810827758 0.0 0.015404522115493542"/>
+              
+              
+              <site name="c1_004_s1" pos="0.010854445501043563 -1.3292861939372396e-18 0.005243975931553977"/>
+              
+              
+              <site name="c1_004_s2" pos="0.010295276810827744 -1.2608077792716175e-18 0.015404522115493528"/>
+              
+
+              
+              <body name="link_005" pos="0.0 0.0 0.017092628507075464" quat="0.9999999999999989 0.0 3.3380155433229234e-16 0.0">
+                
+                
+                <joint name="j_005" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.00701379880192973" stiffness="0.1402759760385946"/>
+                
+                
+                <geom name="gmesh_005" type="mesh" mesh="link_005" group="1"/>
+                
+                
+                <site name="c0_005_s1" pos="-0.009978057409537241 0.0 0.004871983675149487"/>
+                
+                
+                <site name="c0_005_s2" pos="-0.009458554504500285 0.0 0.01431177054390545"/>
+                
+                
+                <site name="c1_005_s1" pos="0.009978057409537241 -1.2219596068298313e-18 0.004871983675149489"/>
+                
+                
+                <site name="c1_005_s2" pos="0.009458554504500285 -1.1583388498497053e-18 0.01431177054390545"/>
+                
+
+                
+                <body name="link_006" pos="0.0 0.0 0.01588012762430599" quat="0.9999999999999989 0.0 6.27031182745677e-20 0.0">
+                  
+                  
+                  <joint name="j_006" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.006418619473967176" stiffness="0.1283723894793435"/>
+                  
+                  
+                  <geom name="gmesh_006" type="mesh" mesh="link_006" group="1"/>
+                  
+                  
+                  <site name="c0_006_s1" pos="-0.009163837716189213 0.0 0.004526379457254508"/>
+                  
+                  
+                  <site name="c0_006_s2" pos="-0.008681186821988264 0.0 0.01329653556051505"/>
+                  
+                  
+                  <site name="c1_006_s1" pos="0.009163837716189213 -1.122246452703691e-18 0.00452637945725451"/>
+                  
+                  
+                  <site name="c1_006_s2" pos="0.008681186821988264 -1.0631387654348112e-18 0.01329653556051505"/>
+                  
+
+                  
+                  <body name="link_007" pos="0.0 0.0 0.014753637994288443" quat="0.9999999999999989 0.0 -5.672128456715344e-17 0.0">
+                    
+                    
+                    <joint name="j_007" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.005873946076162826" stiffness="0.11747892152325652"/>
+                    
+                    
+                    <geom name="gmesh_007" type="mesh" mesh="link_007" group="1"/>
+                    
+                    
+                    <site name="c0_007_s1" pos="-0.008407376377358998 0.0 0.004205291387891803"/>
+                    
+                    
+                    <site name="c0_007_s2" pos="-0.007958963320541919 0.0 0.012353318366142216"/>
+                    
+                    
+                    <site name="c1_007_s1" pos="0.008407376377358994 -1.0296066569759764e-18 0.004205291387891801"/>
+                    
+                    
+                    <site name="c1_007_s2" pos="0.007958963320541915 -9.746918955032848e-19 0.012353318366142216"/>
+                    
+
+                    
+                    <body name="link_008" pos="0.0 0.0 0.013707058231279406" quat="0.9999999999999989 0.0 9.365505275997314e-17 0.0">
+                      
+                      
+                      <joint name="j_008" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.005375492759090629" stiffness="0.10750985518181258"/>
+                      
+                      
+                      <geom name="gmesh_008" type="mesh" mesh="link_008" group="1"/>
+                      
+                      
+                      <site name="c0_008_s1" pos="-0.007704576184954142 0.0 0.003906980363463291"/>
+                      
+                      
+                      <site name="c0_008_s2" pos="-0.007287972233858338 0.0 0.011477010230276556"/>
+                      
+                      
+                      <site name="c1_008_s1" pos="0.007704576184954142 -9.435384563691016e-19 0.0039069803634632925"/>
+                      
+                      
+                      <site name="c1_008_s2" pos="0.007287972233858338 -8.9251918684694e-19 0.01147701023027656"/>
+                      
+
+                      
+                      <body name="link_009" pos="0.0 0.0 0.012734719763926719" quat="0.9999999999999989 0.0 4.1170684145278175e-17 0.0">
+                        
+                        
+                        <joint name="j_009" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.004919337363395092" stiffness="0.09838674726790185"/>
+                        
+                        
+                        <geom name="gmesh_009" type="mesh" mesh="link_009" group="1"/>
+                        
+                        
+                        <site name="c0_009_s1" pos="-0.007051630574795008 0.0 0.003629830647274136"/>
+                        
+                        
+                        <site name="c0_009_s2" pos="-0.006664579284851341 0.0 0.010662864820750751"/>
+                        
+                        
+                        <site name="c1_009_s1" pos="0.007051630574795005 -8.635756812192315e-19 0.0036298306472741394"/>
+                        
+                        
+                        <site name="c1_009_s2" pos="0.006664579284851337 -8.161755688856948e-19 0.010662864820750755"/>
+                        
+
+                        
+                        <body name="link_010" pos="0.0 0.0 0.011831356132687001" quat="0.9999999999999989 0.0 -2.296614004818095e-16 0.0">
+                          
+                          
+                          <joint name="j_010" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.004501890557655382" stiffness="0.09003781115310765"/>
+                          
+                          
+                          <geom name="gmesh_010" type="mesh" mesh="link_010" group="1"/>
+                          
+                          
+                          <site name="c0_010_s1" pos="-0.0064450030091888644 0.0 0.003372341118246971"/>
+                          
+                          
+                          <site name="c0_010_s2" pos="-0.006085408001381061 0.0 0.009906472496266557"/>
+                          
+                          
+                          <site name="c1_010_s1" pos="0.006445003009188854 -7.892852305698194e-19 0.0033723411182469665"/>
+                          
+                          
+                          <site name="c1_010_s2" pos="0.00608540800138105 -7.452475430397e-19 0.009906472496266553"/>
+                          
+
+                          
+                          <body name="link_011" pos="0.0 0.0 0.01099207446519479" quat="0.9999999999999989 0.0 1.371885425556931e-16 0.0">
+                            
+                            
+                            <joint name="j_011" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.004119867595159067" stiffness="0.08239735190318134"/>
+                            
+                            
+                            <geom name="gmesh_011" type="mesh" mesh="link_011" group="1"/>
+                            
+                            
+                            <site name="c0_011_s1" pos="-0.005881407822043716 0.0 0.003133117140426245"/>
+                            
+                            
+                            <site name="c0_011_s2" pos="-0.0055473214283280016 0.0 0.009203736422532638"/>
+                            
+                            
+                            <site name="c1_011_s1" pos="0.005881407822043713 -7.20264726374604e-19 0.003133117140426245"/>
+                            
+                            
+                            <site name="c1_011_s2" pos="0.005547321428327998 -6.793509431043408e-19 0.009203736422532638"/>
+                            
+
+                            
+                            <body name="link_012" pos="-2.407412430484045e-35 0.0 0.010212328975084867" quat="0.9999999999999989 0.0 1.536415507856157e-17 0.0">
+                              
+                              
+                              <joint name="j_012" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.0037702624673491797" stiffness="0.0754052493469836"/>
+                              
+                              
+                              <geom name="gmesh_012" type="mesh" mesh="link_012" group="1"/>
+                              
+                              
+                              <site name="c0_012_s1" pos="-0.005357792422773514 0.0 0.0029108630092366246"/>
+                              
+                              
+                              <site name="c0_012_s2" pos="-0.005047405136958841 0.0 0.008550850382654157"/>
+                              
+                              
+                              <site name="c1_012_s1" pos="0.005357792422773511 -6.561403341045524e-19 0.0029108630092366254"/>
+                              
+                              
+                              <site name="c1_012_s2" pos="0.005047405136958837 -6.181288544976549e-19 0.008550850382654157"/>
+                              
+
+                              
+                              <body name="link_013" pos="0.0 0.0 0.009487896340730412" quat="0.9999999999999989 0.0 1.4473879206732153e-17 0.0">
+                                
+                                
+                                <joint name="j_013" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.0034503242505668657" stiffness="0.06900648501133731"/>
+                                
+                                
+                                <geom name="gmesh_013" type="mesh" mesh="link_013" group="1"/>
+                                
+                                
+                                <site name="c0_013_s1" pos="-0.004871320762606051 0.0 0.0027043749335811103"/>
+                                
+                                
+                                <site name="c0_013_s2" pos="-0.004582951439557895 0.0 0.007944278161587853"/>
+                                
+                                
+                                <site name="c1_013_s1" pos="0.004871320762606046 -5.96564737954554e-19 0.002704374933581111"/>
+                                
+                                
+                                <site name="c1_013_s2" pos="0.00458295143955789 -5.612496811102327e-19 0.007944278161587853"/>
+                                
+
+                                
+                                <body name="link_014" pos="0.0 0.0 0.008814852830541259" quat="0.9999999999999989 0.0 -1.1964112076308103e-16 0.0">
+                                  
+                                  
+                                  <joint name="j_014" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.003157535459970208" stiffness="0.06315070919940417"/>
+                                  
+                                  
+                                  <geom name="gmesh_014" type="mesh" mesh="link_014" group="1"/>
+                                  
+                                  
+                                  <site name="c0_014_s1" pos="-0.0044193579737424465 0.0 0.0025125345157688836"/>
+                                  
+                                  
+                                  <site name="c0_014_s2" pos="-0.00415144472382633 0.0 0.007380734393003408"/>
+                                  
+                                  
+                                  <site name="c1_014_s1" pos="0.004419357973742441 -5.412152596830016e-19 0.002512534515768882"/>
+                                  
+                                  
+                                  <site name="c1_014_s2" pos="0.004151444723826325 -5.084053492871079e-19 0.007380734393003407"/>
+                                  
+
+                                  
+                                  <body name="link_015" pos="0.0 0.0 0.008191006826822" quat="0.9999999999999989 0.0 -1.0e-16 0.0">
+                                    
+                                    
+                                    <joint name="j_015" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.002880" stiffness="0.0576"/>
+                                    
+                                    
+                                    <geom name="gmesh_015" type="mesh" mesh="link_015" group="1"/>
+                                    
+                                    
+                                    <site name="c0_015_s1" pos="-0.003990 0.0 0.002320"/>
+                                    
+                                    
+                                    <site name="c0_015_s2" pos="-0.003750 0.0 0.006820"/>
+                                    
+                                    
+                                    <site name="c1_015_s1" pos=" 0.003990 0.0 0.002320"/>
+                                    
+                                    
+                                    <site name="c1_015_s2" pos=" 0.003750 0.0 0.006820"/>
+                                    
+
+                                    
+                                    <body name="link_016" pos="0.0 0.0 0.007613" quat="0.9999999999999989 0.0 0.0 0.0">
+                                      
+                                      
+                                      <joint name="j_016" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.002630" stiffness="0.0526"/>
+                                      
+                                      
+                                      <geom name="gmesh_016" type="mesh" mesh="link_016" group="1"/>
+                                      
+                                      
+                                      <site name="c0_016_s1" pos="-0.003580 0.0 0.002120"/>
+                                      
+                                      
+                                      <site name="c0_016_s2" pos="-0.003370 0.0 0.006230"/>
+                                      
+                                      
+                                      <site name="c1_016_s1" pos=" 0.003580 0.0 0.002120"/>
+                                      
+                                      
+                                      <site name="c1_016_s2" pos=" 0.003370 0.0 0.006230"/>
+                                      
+
+                                      
+                                      <body name="link_017" pos="0.0 0.0 0.007078" quat="0.9999999999999989 0.0 0.0 0.0">
+                                        
+                                        
+                                        <joint name="j_017" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.002400" stiffness="0.0480"/>
+                                        
+                                        
+                                        <geom name="gmesh_017" type="mesh" mesh="link_017" group="1"/>
+                                        
+                                        
+                                        <site name="c0_017_s1" pos="-0.003190 0.0 0.001930"/>
+                                        
+                                        
+                                        <site name="c0_017_s2" pos="-0.003010 0.0 0.005670"/>
+                                        
+                                        
+                                        <site name="c1_017_s1" pos=" 0.003190 0.0 0.001930"/>
+                                        
+                                        
+                                        <site name="c1_017_s2" pos=" 0.003010 0.0 0.005670"/>
+                                        
+
+                                        
+                                        <body name="link_018" pos="0.0 0.0 0.006582" quat="0.9999999999999989 0.0 0.0 0.0">
+                                          
+                                          
+                                          <joint name="j_018" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.002190" stiffness="0.0438"/>
+                                          
+                                          
+                                          <geom name="gmesh_018" type="mesh" mesh="link_018" group="1"/>
+                                          
+                                          
+                                          <site name="c0_018_s1" pos="-0.002830 0.0 0.001750"/>
+                                          
+                                          
+                                          <site name="c0_018_s2" pos="-0.002660 0.0 0.005140"/>
+                                          
+                                          
+                                          <site name="c1_018_s1" pos=" 0.002830 0.0 0.001750"/>
+                                          
+                                          
+                                          <site name="c1_018_s2" pos=" 0.002660 0.0 0.005140"/>
+                                          
+
+                                          
+                                          <body name="link_019" pos="0.0 0.0 0.006122" quat="0.9999999999999989 0.0 0.0 0.0">
+                                            
+                                            
+                                            <joint name="j_019" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.001995" stiffness="0.0399"/>
+                                            
+                                            
+                                            <geom name="gmesh_019" type="mesh" mesh="link_019" group="1"/>
+                                            
+                                            
+                                            <site name="c0_019_s1" pos="-0.002495 0.0 0.001580"/>
+                                            
+                                            
+                                            <site name="c0_019_s2" pos="-0.002345 0.0 0.004640"/>
+                                            
+                                            
+                                            <site name="c1_019_s1" pos=" 0.002495 0.0 0.001580"/>
+                                            
+                                            
+                                            <site name="c1_019_s2" pos=" 0.002345 0.0 0.004640"/>
+                                            
+
+                                            
+                                            <body name="link_020" pos="0.0 0.0 0.005695" quat="0.9999999999999989 0.0 0.0 0.0">
+                                              
+                                              
+                                              <joint name="j_020" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.001815" stiffness="0.0363"/>
+                                              
+                                              
+                                              <geom name="gmesh_020" type="mesh" mesh="link_020" group="1"/>
+                                              
+                                              
+                                              <site name="c0_020_s1" pos="-0.002180 0.0 0.001420"/>
+                                              
+                                              
+                                              <site name="c0_020_s2" pos="-0.002050 0.0 0.004170"/>
+                                              
+                                              
+                                              <site name="c1_020_s1" pos=" 0.002180 0.0 0.001420"/>
+                                              
+                                              
+                                              <site name="c1_020_s2" pos=" 0.002050 0.0 0.004170"/>
+                                              
+
+                                              
+                                              <body name="link_021" pos="0.0 0.0 0.005300" quat="0.9999999999999989 0.0 0.0 0.0">
+                                                
+                                                
+                                                <joint name="j_021" type="hinge" axis="0 1 0" range="-3.141592653589793 3.141592653589793" damping="0.001650" stiffness="0.0330"/>
+                                                
+                                                
+                                                <geom name="gmesh_021" type="mesh" mesh="link_021" group="1"/>
+                                                
+                                                
+                                                <site name="c0_021_s1" pos="-0.0020366374998512537 0.0 0.001501163441636032"/>
+                                                
+                                                
+                                                <site name="c0_021_s2" pos="-0.0018765674296572562 0.0 0.004409765745968962"/>
+                                                
+                                                
+                                                <site name="c1_021_s1" pos="0.0020366374998512563 -2.494161595216308e-19 0.0015011634416360342"/>
+                                                
+                                                
+                                                <site name="c1_021_s2" pos="0.0018765674296572588 -2.298132296113937e-19 0.004409765745968964"/>
+                                                
+                                                
+                                                
+                                                <site name="tip_site" type="sphere" size="0.003" rgba="0 1 0 1" pos="0 0 0.005"/>
+                                                
+                                              
+                                              </body>
+                                              
+                                            
+                                            </body>
+                                            
+                                          
+                                          </body>
+                                          
+                                        
+                                        </body>
+                                        
+                                      
+                                      </body>
+                                      
+                                    
+                                    </body>
+                                    
+                                  
+                                  </body>
+                                  
+                                
+                                </body>
+                                
+                              
+                              </body>
+                              
+                            
+                            </body>
+                            
+                          
+                          </body>
+                          
+                        
+                          <site name="cs_010_c0" pos="-0.00806521 0.00000000 0.00663941" size="0.003272" rgba="1 0 0 0.3" group="3"/>
+                          <site name="cs_010_c1" pos="0.00806521 -0.00000000 0.00663941" size="0.003272" rgba="1 0 0 0.3" group="3"/>
+                        </body>
+                        
+                      
+                        <site name="cs_009_c0" pos="-0.00865810 0.00000000 0.00714635" size="0.003522" rgba="1 0 0 0.3" group="3"/>
+                        <site name="cs_009_c1" pos="0.00865810 -0.00000000 0.00714635" size="0.003522" rgba="1 0 0 0.3" group="3"/>
+                      </body>
+                      
+                    
+                      <site name="cs_008_c0" pos="-0.00929627 0.00000000 0.00769200" size="0.003791" rgba="1 0 0 0.3" group="3"/>
+                      <site name="cs_008_c1" pos="0.00929627 -0.00000000 0.00769200" size="0.003791" rgba="1 0 0 0.3" group="3"/>
+                    </body>
+                    
+                  
+                    <site name="cs_007_c0" pos="-0.00998317 0.00000000 0.00827930" size="0.004080" rgba="1 0 0 0.3" group="3"/>
+                    <site name="cs_007_c1" pos="0.00998317 -0.00000000 0.00827930" size="0.004080" rgba="1 0 0 0.3" group="3"/>
+                  </body>
+                  
+                
+                  <site name="cs_006_c0" pos="-0.01072251 0.00000000 0.00891146" size="0.004392" rgba="1 0 0 0.3" group="3"/>
+                  <site name="cs_006_c1" pos="0.01072251 -0.00000000 0.00891146" size="0.004392" rgba="1 0 0 0.3" group="3"/>
+                </body>
+                
+              
+                <site name="cs_005_c0" pos="-0.01151831 0.00000000 0.00959188" size="0.004727" rgba="1 0 0 0.3" group="3"/>
+                <site name="cs_005_c1" pos="0.01151831 -0.00000000 0.00959188" size="0.004727" rgba="1 0 0 0.3" group="3"/>
+              </body>
+              
+            
+              <site name="cs_004_c0" pos="-0.01237486 0.00000000 0.01032425" size="0.005088" rgba="1 0 0 0.3" group="3"/>
+              <site name="cs_004_c1" pos="0.01237486 -0.00000000 0.01032425" size="0.005088" rgba="1 0 0 0.3" group="3"/>
+            </body>
+            
+          
+            <site name="cs_003_c0" pos="-0.01329682 0.00000000 0.01111254" size="0.005476" rgba="1 0 0 0.3" group="3"/>
+            <site name="cs_003_c1" pos="0.01329682 -0.00000000 0.01111254" size="0.005476" rgba="1 0 0 0.3" group="3"/>
+          </body>
+          
+        
+          <site name="cs_002_c0" pos="-0.01428917 0.00000000 0.01196102" size="0.005895" rgba="1 0 0 0.3" group="3"/>
+          <site name="cs_002_c1" pos="0.01428917 -0.00000000 0.01196102" size="0.005895" rgba="1 0 0 0.3" group="3"/>
+        </body>
+        
+      
+        <site name="cs_001_c0" pos="-0.01570338 0.00000000 0.00643847" size="0.002555" rgba="1 0 0 0.3" group="3"/>
+        <site name="cs_001_c1" pos="0.01570338 -0.00000000 0.00643847" size="0.002555" rgba="1 0 0 0.3" group="3"/>
+      </body>
+      
+    
+    </body>
+      
+
+    
+    
+  </worldbody>
+  <tendon>
+    
+    
+    <spatial name="cable_0" width="0.0006">
+      
+      
+      <site site="c0_021_s2"/>
+      <site site="c0_021_s1"/>
+      
+      
+      <site site="c0_020_s2"/>
+      <site site="c0_020_s1"/>
+      
+      
+      <site site="c0_019_s2"/>
+      <site site="c0_019_s1"/>
+      
+      
+      <site site="c0_018_s2"/>
+      <site site="c0_018_s1"/>
+      
+      
+      <site site="c0_017_s2"/>
+      <site site="c0_017_s1"/>
+      
+      
+      <site site="c0_016_s2"/>
+      <site site="c0_016_s1"/>
+      
+      
+      <site site="c0_015_s2"/>
+      <site site="c0_015_s1"/>
+      
+      
+      <site site="c0_014_s2"/>
+      <site site="c0_014_s1"/>
+      
+      
+      <site site="c0_013_s2"/>
+      <site site="c0_013_s1"/>
+      
+      
+      <site site="c0_012_s2"/>
+      <site site="c0_012_s1"/>
+      
+      
+      <site site="c0_011_s2"/>
+      <site site="c0_011_s1"/>
+      
+      
+      <site site="c0_010_s2"/>
+      <site site="c0_010_s1"/>
+      
+      
+      <site site="c0_009_s2"/>
+      <site site="c0_009_s1"/>
+      
+      
+      <site site="c0_008_s2"/>
+      <site site="c0_008_s1"/>
+      
+      
+      <site site="c0_007_s2"/>
+      <site site="c0_007_s1"/>
+      
+      
+      <site site="c0_006_s2"/>
+      <site site="c0_006_s1"/>
+      
+      
+      <site site="c0_005_s2"/>
+      <site site="c0_005_s1"/>
+      
+      
+      <site site="c0_004_s2"/>
+      <site site="c0_004_s1"/>
+      
+      
+      <site site="c0_003_s2"/>
+      <site site="c0_003_s1"/>
+      
+      
+      <site site="c0_002_s2"/>
+      <site site="c0_002_s1"/>
+      
+      
+      <site site="c0_001_s2"/>
+      <site site="c0_001_s1"/>
+      
+    
+    </spatial>
+    
+    
+    <spatial name="cable_1" width="0.0006">
+      
+      
+      <site site="c1_021_s2"/>
+      <site site="c1_021_s1"/>
+      
+      
+      <site site="c1_020_s2"/>
+      <site site="c1_020_s1"/>
+      
+      
+      <site site="c1_019_s2"/>
+      <site site="c1_019_s1"/>
+      
+      
+      <site site="c1_018_s2"/>
+      <site site="c1_018_s1"/>
+      
+      
+      <site site="c1_017_s2"/>
+      <site site="c1_017_s1"/>
+      
+      
+      <site site="c1_016_s2"/>
+      <site site="c1_016_s1"/>
+      
+      
+      <site site="c1_015_s2"/>
+      <site site="c1_015_s1"/>
+      
+      
+      <site site="c1_014_s2"/>
+      <site site="c1_014_s1"/>
+      
+      
+      <site site="c1_013_s2"/>
+      <site site="c1_013_s1"/>
+      
+      
+      <site site="c1_012_s2"/>
+      <site site="c1_012_s1"/>
+      
+      
+      <site site="c1_011_s2"/>
+      <site site="c1_011_s1"/>
+      
+      
+      <site site="c1_010_s2"/>
+      <site site="c1_010_s1"/>
+      
+      
+      <site site="c1_009_s2"/>
+      <site site="c1_009_s1"/>
+      
+      
+      <site site="c1_008_s2"/>
+      <site site="c1_008_s1"/>
+      
+      
+      <site site="c1_007_s2"/>
+      <site site="c1_007_s1"/>
+      
+      
+      <site site="c1_006_s2"/>
+      <site site="c1_006_s1"/>
+      
+      
+      <site site="c1_005_s2"/>
+      <site site="c1_005_s1"/>
+      
+      
+      <site site="c1_004_s2"/>
+      <site site="c1_004_s1"/>
+      
+      
+      <site site="c1_003_s2"/>
+      <site site="c1_003_s1"/>
+      
+      
+      <site site="c1_002_s2"/>
+      <site site="c1_002_s1"/>
+      
+      
+      <site site="c1_001_s2"/>
+      <site site="c1_001_s1"/>
+      
+    
+    </spatial>
+    
+  
+  </tendon>
+  
+
+  
+  
+  <actuator>
+    
+    
+    <position class="cable_pos" name="act_c0" tendon="cable_0"/>
+    
+    
+    <position class="cable_pos" name="act_c1" tendon="cable_1"/>
+    
+  
+  </actuator>
+  
+
+
+  <sensor>
+    <touch name="touch_001_c0" site="cs_001_c0"/>
+    <touch name="touch_001_c1" site="cs_001_c1"/>
+    <touch name="touch_002_c0" site="cs_002_c0"/>
+    <touch name="touch_002_c1" site="cs_002_c1"/>
+    <touch name="touch_003_c0" site="cs_003_c0"/>
+    <touch name="touch_003_c1" site="cs_003_c1"/>
+    <touch name="touch_004_c0" site="cs_004_c0"/>
+    <touch name="touch_004_c1" site="cs_004_c1"/>
+    <touch name="touch_005_c0" site="cs_005_c0"/>
+    <touch name="touch_005_c1" site="cs_005_c1"/>
+    <touch name="touch_006_c0" site="cs_006_c0"/>
+    <touch name="touch_006_c1" site="cs_006_c1"/>
+    <touch name="touch_007_c0" site="cs_007_c0"/>
+    <touch name="touch_007_c1" site="cs_007_c1"/>
+    <touch name="touch_008_c0" site="cs_008_c0"/>
+    <touch name="touch_008_c1" site="cs_008_c1"/>
+    <touch name="touch_009_c0" site="cs_009_c0"/>
+    <touch name="touch_009_c1" site="cs_009_c1"/>
+    <touch name="touch_010_c0" site="cs_010_c0"/>
+    <touch name="touch_010_c1" site="cs_010_c1"/>
+  </sensor>
+</mujoco>
