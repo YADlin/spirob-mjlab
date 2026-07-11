@@ -198,7 +198,11 @@ def spirob_bucket_drop_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "inside_bucket": RewardTermCfg(
             func=mdp.egg_inside_bucket_reward,
             weight=10.0,
-            params={"asset_cfg": bucket_site_cfg},
+            params={
+                "asset_cfg": bucket_site_cfg,
+                "com_distance_threshold": 0.015,
+                "max_z_offset": 0.020,
+            },
         ),
         # Keep policy quiet; the robot is present but this stage is about scene mechanics.
         "action_l2": RewardTermCfg(func=mdp.action_l2, weight=-0.002),
@@ -207,7 +211,11 @@ def spirob_bucket_drop_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     terminations = {
         "success_egg_inside_bucket": TerminationTermCfg(
             func=mdp.egg_inside_bucket,
-            params={"asset_cfg": bucket_site_cfg},
+            params={
+                "asset_cfg": bucket_site_cfg,
+                "com_distance_threshold": 0.015,
+                "max_z_offset": 0.020,
+            },
         ),
         "egg_missed_bucket": TerminationTermCfg(
             func=mdp.egg_missed_bucket,

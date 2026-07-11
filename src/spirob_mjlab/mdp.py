@@ -148,31 +148,47 @@ def egg_to_bucket_reward(
 def egg_inside_bucket(
     env: "ManagerBasedRlEnv",
     asset_cfg: SceneEntityCfg = BUCKET_CFG,
-    xy_threshold: float = 0.026,
+    com_distance_threshold: float = 0.015,
     min_z_offset: float = -0.010,
-    max_z_offset: float = 0.055,
+    max_z_offset: float = 0.020,
 ) -> torch.Tensor:
-    """Success detector for the simple box-bucket.
+    """Strict bucket success detector for the box-bucket.
 
-    The bucket target site is at the approximate cup center. We declare success
-    when the egg root is horizontally inside the bucket and within a vertical
-    band around the bucket interior. This is intentionally geometry-based rather
-    than contact-pair-based so it remains cheap and vectorized over all envs.
+    The previous version used a loose XY check plus a tall Z band, which could
+    terminate as soon as the egg/base reached the bucket rim. For this confidence
+    task, success should mean the egg root/COM is close to the bucket interior
+    site. Therefore we require both:
+      1. 3-D COM-to-bucket-site distance < com_distance_threshold, and
+      2. COM height within a conservative interior Z band relative to bucket_site.
+
+    With the current bucket XML, bucket_site is at z=0.030 while the rim is near
+    z=0.053. A max_z_offset of 0.020 means egg COM must be below about z=0.050,
+    i.e. below the open-top/rim region rather than merely touching it.
     """
     egg = egg_position(env)
     bucket = bucket_position(env, asset_cfg)
     delta = egg - bucket
-    xy_ok = torch.linalg.norm(delta[:, :2], dim=-1) < xy_threshold
-    z_ok = (delta[:, 2] > min_z_offset) & (delta[:, 2] < max_z_offset)
-    return xy_ok & z_ok
+
+    com_close = torch.linalg.norm(delta, dim=-1) < com_distance_threshold
+    z_inside = (delta[:, 2] > min_z_offset) & (delta[:, 2] < max_z_offset)
+    return com_close & z_inside
 
 
 def egg_inside_bucket_reward(
     env: "ManagerBasedRlEnv",
     asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    com_distance_threshold: float = 0.015,
+    min_z_offset: float = -0.010,
+    max_z_offset: float = 0.020,
 ) -> torch.Tensor:
     """Float version of egg_inside_bucket for RewardTermCfg."""
-    return egg_inside_bucket(env, asset_cfg).float()
+    return egg_inside_bucket(
+        env,
+        asset_cfg=asset_cfg,
+        com_distance_threshold=com_distance_threshold,
+        min_z_offset=min_z_offset,
+        max_z_offset=max_z_offset,
+    ).float()
 
 
 def egg_missed_bucket(
