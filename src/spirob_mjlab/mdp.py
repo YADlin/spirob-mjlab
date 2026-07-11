@@ -116,3 +116,81 @@ def egg_fell(env: "ManagerBasedRlEnv", min_z: float = 0.03) -> torch.Tensor:
 
 def nan_state(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return ~torch.isfinite(env.sim.data.qacc).all(dim=-1)
+
+def egg_to_bucket_distance(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+) -> torch.Tensor:
+    """3-D distance from egg root to bucket target site."""
+    d = egg_to_bucket(env, asset_cfg)
+    return torch.linalg.norm(d, dim=-1)
+
+
+def egg_xy_distance_to_bucket(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+) -> torch.Tensor:
+    """XY distance from egg root to bucket target site."""
+    d = egg_to_bucket(env, asset_cfg)
+    return torch.linalg.norm(d[:, :2], dim=-1)
+
+
+def egg_to_bucket_reward(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    std: float = 0.05,
+) -> torch.Tensor:
+    """Smooth shaping reward for bucket-drop: 1 at bucket_site, ~0 far away."""
+    d = egg_to_bucket(env, asset_cfg)
+    return torch.exp(-torch.sum(d * d, dim=-1) / (std * std))
+
+
+def egg_inside_bucket(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    xy_threshold: float = 0.026,
+    min_z_offset: float = -0.010,
+    max_z_offset: float = 0.055,
+) -> torch.Tensor:
+    """Success detector for the simple box-bucket.
+
+    The bucket target site is at the approximate cup center. We declare success
+    when the egg root is horizontally inside the bucket and within a vertical
+    band around the bucket interior. This is intentionally geometry-based rather
+    than contact-pair-based so it remains cheap and vectorized over all envs.
+    """
+    egg = egg_position(env)
+    bucket = bucket_position(env, asset_cfg)
+    delta = egg - bucket
+    xy_ok = torch.linalg.norm(delta[:, :2], dim=-1) < xy_threshold
+    z_ok = (delta[:, 2] > min_z_offset) & (delta[:, 2] < max_z_offset)
+    return xy_ok & z_ok
+
+
+def egg_inside_bucket_reward(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+) -> torch.Tensor:
+    """Float version of egg_inside_bucket for RewardTermCfg."""
+    return egg_inside_bucket(env, asset_cfg).float()
+
+
+def egg_missed_bucket(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    miss_z_offset: float = -0.005,
+    xy_fail_threshold: float = 0.045,
+) -> torch.Tensor:
+    """Terminate failed drops once the egg has fallen below the bucket center.
+
+    If the egg is already below the target site but outside a generous XY radius,
+    it has missed the bucket. This prevents wasting the full episode on obvious
+    failed drops while avoiding false failure during the initial fall.
+    """
+    egg = egg_position(env)
+    bucket = bucket_position(env, asset_cfg)
+    delta = egg - bucket
+    below_cup_center = delta[:, 2] < miss_z_offset
+    outside_bucket = torch.linalg.norm(delta[:, :2], dim=-1) > xy_fail_threshold
+    return below_cup_center & outside_bucket
+

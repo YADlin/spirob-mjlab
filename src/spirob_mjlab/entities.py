@@ -83,6 +83,26 @@ def egg_cfg() -> EntityCfg:
     )
 
 
+def egg_drop_cfg() -> EntityCfg:
+    """Free egg initialized directly above the bucket for the bucket-drop task.
+
+    The bucket entity is placed at (-0.05, 0.15, 0.0), and bucket_site is local
+    (0, 0, 0.030). Therefore the egg starts on the same XY line, high enough to
+    fall into the box-shaped bucket under gravity.
+    """
+    return EntityCfg(
+        spec_fn=egg_spec,
+        init_state=EntityCfg.InitialStateCfg(
+            pos=(-0.05, 0.15, 0.135),
+            rot=(1.0, 0.0, 0.0, 0.0),
+            lin_vel=(0.0, 0.0, 0.0),
+            ang_vel=(0.0, 0.0, 0.0),
+            joint_pos={},
+            joint_vel={},
+        ),
+    )
+
+
 def pedestal_cfg() -> EntityCfg:
     """Fixed pedestal under the egg."""
     return EntityCfg(
