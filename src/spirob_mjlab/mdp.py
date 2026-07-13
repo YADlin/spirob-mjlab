@@ -1,8 +1,8 @@
-"""Minimal SpiRob MDP terms for mjlab.
+"""SpiRob MDP terms for mjlab.
 
-The terms are intentionally simple and vectorized over all mjlab environments.
-They are the mjlab equivalent of the user's first Gym proof-of-concept:
-  tendon state + touch sensors + tip-to-egg vector -> reach/contact reward.
+The functions are vectorized over all mjlab environments. Stage 1 manipulation
+uses the smallest meaningful reward: reduce egg-to-bucket distance, with a
+sparse terminal bonus when the egg is actually inside the bucket.
 """
 
 from __future__ import annotations
@@ -59,10 +59,7 @@ def egg_to_bucket(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = BUCKET_C
 
 
 def touch_values(env: "ManagerBasedRlEnv", n_sensors: int = 20, threshold: float = 1.0e-4) -> torch.Tensor:
-    """Binary robot touch sensors from MuJoCo sensordata.
-
-    The robot XML contributes 20 <touch> sensors. This returns [num_envs, 20].
-    """
+    """Binary robot touch sensors from MuJoCo sensordata."""
     raw = env.sim.data.sensordata[:, :n_sensors]
     return (raw > threshold).float()
 
@@ -109,9 +106,94 @@ def reached_egg(
     return (d < distance_threshold) | touched
 
 
+def egg_to_bucket_distance(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+) -> torch.Tensor:
+    """3D distance from egg root/COM to bucket target site."""
+    return torch.linalg.norm(egg_to_bucket(env, asset_cfg), dim=-1)
+
+
+def egg_to_bucket_xy_distance(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+) -> torch.Tensor:
+    """XY distance from egg root/COM to bucket target site."""
+    return torch.linalg.norm(egg_to_bucket(env, asset_cfg)[:, :2], dim=-1)
+
+
+def egg_to_bucket_distance_reward(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    distance_scale: float = 0.10,
+) -> torch.Tensor:
+    """Minimal dense manipulation reward.
+
+    Returns a larger value as the egg approaches the bucket. This deliberately
+    ignores whether the robot touched the egg. At this stage, we want to observe
+    whether random tendon exploration can ever move the object in the right
+    direction. If it cannot, the next reward term to add is reach/contact.
+    """
+    d = egg_to_bucket_distance(env, asset_cfg)
+    return -d / distance_scale
+
+
+def egg_to_bucket_smooth_reward(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    std: float = 0.08,
+) -> torch.Tensor:
+    """Optional bounded version of the distance reward, useful for diagnostics."""
+    d = egg_to_bucket(env, asset_cfg)
+    return torch.exp(-torch.sum(d * d, dim=-1) / (std * std))
+
+
+def egg_inside_bucket(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    com_distance_threshold: float = 0.015,
+    min_z_offset: float = -0.010,
+    max_z_offset: float = 0.020,
+) -> torch.Tensor:
+    """Strict bucket success detector.
+
+    Success requires the egg root/COM to be close to bucket_site and vertically
+    inside the bucket interior, not merely near the rim.
+    """
+    egg = egg_position(env)
+    bucket = bucket_position(env, asset_cfg)
+    delta = egg - bucket
+    com_close = torch.linalg.norm(delta, dim=-1) < com_distance_threshold
+    z_inside = (delta[:, 2] > min_z_offset) & (delta[:, 2] < max_z_offset)
+    return com_close & z_inside
+
+
+def egg_inside_bucket_reward(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    com_distance_threshold: float = 0.015,
+    min_z_offset: float = -0.010,
+    max_z_offset: float = 0.020,
+) -> torch.Tensor:
+    """Float version of egg_inside_bucket for RewardTermCfg."""
+    return egg_inside_bucket(
+        env,
+        asset_cfg=asset_cfg,
+        com_distance_threshold=com_distance_threshold,
+        min_z_offset=min_z_offset,
+        max_z_offset=max_z_offset,
+    ).float()
+
+
 def egg_fell(env: "ManagerBasedRlEnv", min_z: float = 0.03) -> torch.Tensor:
-    """Safety termination for early debugging."""
+    """Safety termination if the egg falls below the useful workspace."""
     return egg_position(env)[:, 2] < min_z
+
+
+def egg_out_of_bounds(env: "ManagerBasedRlEnv", xy_limit: float = 0.40) -> torch.Tensor:
+    """Terminate if the egg escapes the small manipulation workspace."""
+    egg = egg_position(env)
+    return (torch.abs(egg[:, 0]) > xy_limit) | (torch.abs(egg[:, 1]) > xy_limit)
 
 
 def nan_state(env: "ManagerBasedRlEnv") -> torch.Tensor:
