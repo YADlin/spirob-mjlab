@@ -14,6 +14,7 @@ from __future__ import annotations
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp import time_out
 from mjlab.envs.mdp.actions import TendonLengthActionCfg
+from spirob_mjlab.actions import RateLimitedTendonLengthActionCfg
 from mjlab.managers.action_manager import ActionTermCfg
 from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
@@ -35,6 +36,10 @@ from spirob_mjlab.entities import (
     pedestal_cfg,
     spirob_robot_cfg,
 )
+
+# Stage-1 action dynamics. Full range remains accessible; only command rate is limited.
+CABLE_ACTION_SCALE_FULL_RANGE = 0.5 * (CABLE_CTRL_RANGE[1] - CABLE_CTRL_RANGE[0])
+CABLE_MAX_DELTA_PER_CONTROL_STEP = 5.0e-3  # metres/control-step. 0.03 m takes ~2 s at 100 Hz.
 
 
 def _robot_tip_cfg() -> SceneEntityCfg:
@@ -108,6 +113,26 @@ def _common_actions() -> dict[str, ActionTermCfg]:
             offset=CABLE_REST,
             preserve_order=True,
             clip={name: CABLE_CTRL_RANGE for name in CABLE_NAMES},
+        ),
+    }
+
+
+def _stage1_rate_limited_actions() -> dict[str, ActionTermCfg]:
+    """Full-range tendon targets with slow command dynamics for Stage 1.
+
+    The policy still has access to the full valid tendon-length interval
+    CABLE_CTRL_RANGE = (0.15, 0.29). The command sent to the actuator can only
+    change by CABLE_MAX_DELTA_PER_CONTROL_STEP at each policy/control step.
+    """
+    return {
+        "cable_len": RateLimitedTendonLengthActionCfg(
+            entity_name="robot",
+            actuator_names=CABLE_NAMES,
+            scale=CABLE_ACTION_SCALE_FULL_RANGE,
+            offset=CABLE_REST,
+            preserve_order=True,
+            clip={name: CABLE_CTRL_RANGE for name in CABLE_NAMES},
+            max_delta_per_step=CABLE_MAX_DELTA_PER_CONTROL_STEP,
         ),
     }
 
@@ -289,7 +314,7 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
             env_spacing=0.70,
         ),
         observations=_common_observations(include_touch=True),
-        actions=_common_actions(),
+        actions=_stage1_rate_limited_actions(),
         rewards=rewards,
         terminations=terminations,
         viewer=_common_viewer_cfg(),

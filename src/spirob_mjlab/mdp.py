@@ -58,7 +58,7 @@ def egg_to_bucket(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = BUCKET_C
     return bucket_position(env, asset_cfg) - egg_position(env)
 
 
-def touch_values(env: "ManagerBasedRlEnv", n_sensors: int = 20, threshold: float = 1.0e-4) -> torch.Tensor:
+def touch_values(env: "ManagerBasedRlEnv", n_sensors: int = 42, threshold: float = 1.0e-4) -> torch.Tensor:
     """Binary robot touch sensors from MuJoCo sensordata."""
     raw = env.sim.data.sensordata[:, :n_sensors]
     return (raw > threshold).float()
@@ -80,7 +80,7 @@ def reach_reward(
 
 def contact_reward(
     env: "ManagerBasedRlEnv",
-    n_sensors: int = 20,
+    n_sensors: int = 42,
     threshold: float = 1.0e-4,
 ) -> torch.Tensor:
     """Small reward proportional to the number of active touch sensors."""
@@ -97,7 +97,7 @@ def reached_egg(
     env: "ManagerBasedRlEnv",
     asset_cfg: SceneEntityCfg = ROBOT_CFG,
     distance_threshold: float = 0.012,
-    n_sensors: int = 20,
+    n_sensors: int = 42,
     touch_threshold: float = 1.0e-4,
 ) -> torch.Tensor:
     """Terminate as success when close enough or when any touch sensor fires."""

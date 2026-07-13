@@ -614,89 +614,69 @@
                                                 
                                                 <site name="tip_site" type="sphere" size="0.003" rgba="0 1 0 1" pos="0 0 0.005"/>
                                                 
-                                              
+                                                                                          <site name="cs_021_c0" pos="-0.00375660 0.00000000 0.00295546" size="0.001457" rgba="1 0 0 0.3" group="3" />
+                                                                                          <site name="cs_021_c1" pos="0.00375660 -0.00000000 0.00295546" size="0.001457" rgba="1 0 0 0.3" group="3" />
+                                                                                      </body>
+                                                                                      <site name="cs_020_c0" pos="-0.00402053 0.00000000 0.00318112" size="0.001568" rgba="1 0 0 0.3" group="3" />
+                                                                                      <site name="cs_020_c1" pos="0.00402053 -0.00000000 0.00318112" size="0.001568" rgba="1 0 0 0.3" group="3" />
+                                                                                  </body>
+                                                                                  <site name="cs_019_c0" pos="-0.00430460 0.00000000 0.00342401" size="0.001687" rgba="1 0 0 0.3" group="3" />
+                                                                                  <site name="cs_019_c1" pos="0.00430460 -0.00000000 0.00342401" size="0.001687" rgba="1 0 0 0.3" group="3" />
+                                                                              </body>
+                                                                              <site name="cs_018_c0" pos="-0.00461036 0.00000000 0.00368545" size="0.001816" rgba="1 0 0 0.3" group="3" />
+                                                                              <site name="cs_018_c1" pos="0.00461036 -0.00000000 0.00368545" size="0.001816" rgba="1 0 0 0.3" group="3" />
+                                                                          </body>
+                                                                          <site name="cs_017_c0" pos="-0.00493948 0.00000000 0.00396684" size="0.001955" rgba="1 0 0 0.3" group="3" />
+                                                                          <site name="cs_017_c1" pos="0.00493948 -0.00000000 0.00396684" size="0.001955" rgba="1 0 0 0.3" group="3" />
+                                                                      </body>
+                                                                      <site name="cs_016_c0" pos="-0.00529372 0.00000000 0.00426973" size="0.002104" rgba="1 0 0 0.3" group="3" />
+                                                                      <site name="cs_016_c1" pos="0.00529372 -0.00000000 0.00426973" size="0.002104" rgba="1 0 0 0.3" group="3" />
+                                                                  </body>
+                                                                  <site name="cs_015_c0" pos="-0.00567500 0.00000000 0.00459573" size="0.002265" rgba="1 0 0 0.3" group="3" />
+                                                                  <site name="cs_015_c1" pos="0.00567500 -0.00000000 0.00459573" size="0.002265" rgba="1 0 0 0.3" group="3" />
+                                                              </body>
+                                                              <site name="cs_014_c0" pos="-0.00608540 0.00000000 0.00494663" size="0.002438" rgba="1 0 0 0.3" group="3" />
+                                                              <site name="cs_014_c1" pos="0.00608540 -0.00000000 0.00494663" size="0.002438" rgba="1 0 0 0.3" group="3" />
+                                                          </body>
+                                                          <site name="cs_013_c0" pos="-0.00652714 0.00000000 0.00532433" size="0.002624" rgba="1 0 0 0.3" group="3" />
+                                                          <site name="cs_013_c1" pos="0.00652714 -0.00000000 0.00532433" size="0.002624" rgba="1 0 0 0.3" group="3" />
+                                                      </body>
+                                                      <site name="cs_012_c0" pos="-0.00700260 0.00000000 0.00573086" size="0.002824" rgba="1 0 0 0.3" group="3" />
+                                                      <site name="cs_012_c1" pos="0.00700260 -0.00000000 0.00573086" size="0.002824" rgba="1 0 0 0.3" group="3" />
+                                                  </body>
+                                                  <site name="cs_011_c0" pos="-0.00751436 0.00000000 0.00616843" size="0.003040" rgba="1 0 0 0.3" group="3" />
+                                                  <site name="cs_011_c1" pos="0.00751436 -0.00000000 0.00616843" size="0.003040" rgba="1 0 0 0.3" group="3" />
                                               </body>
-                                              
-                                            
-                                            </body>
-                                            
-                                          
+                                              <site name="cs_010_c0" pos="-0.00806521 0.00000000 0.00663941" size="0.003272" rgba="1 0 0 0.3" group="3" />
+                                              <site name="cs_010_c1" pos="0.00806521 -0.00000000 0.00663941" size="0.003272" rgba="1 0 0 0.3" group="3" />
                                           </body>
-                                          
-                                        
-                                        </body>
-                                        
-                                      
+                                          <site name="cs_009_c0" pos="-0.00865810 0.00000000 0.00714635" size="0.003522" rgba="1 0 0 0.3" group="3" />
+                                          <site name="cs_009_c1" pos="0.00865810 -0.00000000 0.00714635" size="0.003522" rgba="1 0 0 0.3" group="3" />
                                       </body>
-                                      
-                                    
-                                    </body>
-                                    
-                                  
+                                      <site name="cs_008_c0" pos="-0.00929627 0.00000000 0.00769200" size="0.003791" rgba="1 0 0 0.3" group="3" />
+                                      <site name="cs_008_c1" pos="0.00929627 -0.00000000 0.00769200" size="0.003791" rgba="1 0 0 0.3" group="3" />
                                   </body>
-                                  
-                                
-                                </body>
-                                
-                              
+                                  <site name="cs_007_c0" pos="-0.00998317 0.00000000 0.00827930" size="0.004080" rgba="1 0 0 0.3" group="3" />
+                                  <site name="cs_007_c1" pos="0.00998317 -0.00000000 0.00827930" size="0.004080" rgba="1 0 0 0.3" group="3" />
                               </body>
-                              
-                            
-                            </body>
-                            
-                          
+                              <site name="cs_006_c0" pos="-0.01072251 0.00000000 0.00891146" size="0.004392" rgba="1 0 0 0.3" group="3" />
+                              <site name="cs_006_c1" pos="0.01072251 -0.00000000 0.00891146" size="0.004392" rgba="1 0 0 0.3" group="3" />
                           </body>
-                          
-                        
-                          <site name="cs_010_c0" pos="-0.00806521 0.00000000 0.00663941" size="0.003272" rgba="1 0 0 0.3" group="3"/>
-                          <site name="cs_010_c1" pos="0.00806521 -0.00000000 0.00663941" size="0.003272" rgba="1 0 0 0.3" group="3"/>
-                        </body>
-                        
-                      
-                        <site name="cs_009_c0" pos="-0.00865810 0.00000000 0.00714635" size="0.003522" rgba="1 0 0 0.3" group="3"/>
-                        <site name="cs_009_c1" pos="0.00865810 -0.00000000 0.00714635" size="0.003522" rgba="1 0 0 0.3" group="3"/>
+                          <site name="cs_005_c0" pos="-0.01151831 0.00000000 0.00959188" size="0.004727" rgba="1 0 0 0.3" group="3" />
+                          <site name="cs_005_c1" pos="0.01151831 -0.00000000 0.00959188" size="0.004727" rgba="1 0 0 0.3" group="3" />
                       </body>
-                      
-                    
-                      <site name="cs_008_c0" pos="-0.00929627 0.00000000 0.00769200" size="0.003791" rgba="1 0 0 0.3" group="3"/>
-                      <site name="cs_008_c1" pos="0.00929627 -0.00000000 0.00769200" size="0.003791" rgba="1 0 0 0.3" group="3"/>
-                    </body>
-                    
-                  
-                    <site name="cs_007_c0" pos="-0.00998317 0.00000000 0.00827930" size="0.004080" rgba="1 0 0 0.3" group="3"/>
-                    <site name="cs_007_c1" pos="0.00998317 -0.00000000 0.00827930" size="0.004080" rgba="1 0 0 0.3" group="3"/>
+                      <site name="cs_004_c0" pos="-0.01237486 0.00000000 0.01032425" size="0.005088" rgba="1 0 0 0.3" group="3" />
+                      <site name="cs_004_c1" pos="0.01237486 -0.00000000 0.01032425" size="0.005088" rgba="1 0 0 0.3" group="3" />
                   </body>
-                  
-                
-                  <site name="cs_006_c0" pos="-0.01072251 0.00000000 0.00891146" size="0.004392" rgba="1 0 0 0.3" group="3"/>
-                  <site name="cs_006_c1" pos="0.01072251 -0.00000000 0.00891146" size="0.004392" rgba="1 0 0 0.3" group="3"/>
-                </body>
-                
-              
-                <site name="cs_005_c0" pos="-0.01151831 0.00000000 0.00959188" size="0.004727" rgba="1 0 0 0.3" group="3"/>
-                <site name="cs_005_c1" pos="0.01151831 -0.00000000 0.00959188" size="0.004727" rgba="1 0 0 0.3" group="3"/>
+                  <site name="cs_003_c0" pos="-0.01329682 0.00000000 0.01111254" size="0.005476" rgba="1 0 0 0.3" group="3" />
+                  <site name="cs_003_c1" pos="0.01329682 -0.00000000 0.01111254" size="0.005476" rgba="1 0 0 0.3" group="3" />
               </body>
-              
-            
-              <site name="cs_004_c0" pos="-0.01237486 0.00000000 0.01032425" size="0.005088" rgba="1 0 0 0.3" group="3"/>
-              <site name="cs_004_c1" pos="0.01237486 -0.00000000 0.01032425" size="0.005088" rgba="1 0 0 0.3" group="3"/>
-            </body>
-            
-          
-            <site name="cs_003_c0" pos="-0.01329682 0.00000000 0.01111254" size="0.005476" rgba="1 0 0 0.3" group="3"/>
-            <site name="cs_003_c1" pos="0.01329682 -0.00000000 0.01111254" size="0.005476" rgba="1 0 0 0.3" group="3"/>
+              <site name="cs_002_c0" pos="-0.01428917 0.00000000 0.01196102" size="0.005895" rgba="1 0 0 0.3" group="3" />
+              <site name="cs_002_c1" pos="0.01428917 -0.00000000 0.01196102" size="0.005895" rgba="1 0 0 0.3" group="3" />
           </body>
-          
-        
-          <site name="cs_002_c0" pos="-0.01428917 0.00000000 0.01196102" size="0.005895" rgba="1 0 0 0.3" group="3"/>
-          <site name="cs_002_c1" pos="0.01428917 -0.00000000 0.01196102" size="0.005895" rgba="1 0 0 0.3" group="3"/>
-        </body>
-        
-      
-        <site name="cs_001_c0" pos="-0.01570338 0.00000000 0.00643847" size="0.002555" rgba="1 0 0 0.3" group="3"/>
-        <site name="cs_001_c1" pos="0.01570338 -0.00000000 0.00643847" size="0.002555" rgba="1 0 0 0.3" group="3"/>
+          <site name="cs_001_c0" pos="-0.01570338 0.00000000 0.00643847" size="0.002555" rgba="1 0 0 0.3" group="3" />
+          <site name="cs_001_c1" pos="0.01570338 -0.00000000 0.00643847" size="0.002555" rgba="1 0 0 0.3" group="3" />
       </body>
-      
     
     </body>
       
@@ -906,25 +886,47 @@
 
 
   <sensor>
-    <touch name="touch_001_c0" site="cs_001_c0"/>
-    <touch name="touch_001_c1" site="cs_001_c1"/>
-    <touch name="touch_002_c0" site="cs_002_c0"/>
-    <touch name="touch_002_c1" site="cs_002_c1"/>
-    <touch name="touch_003_c0" site="cs_003_c0"/>
-    <touch name="touch_003_c1" site="cs_003_c1"/>
-    <touch name="touch_004_c0" site="cs_004_c0"/>
-    <touch name="touch_004_c1" site="cs_004_c1"/>
-    <touch name="touch_005_c0" site="cs_005_c0"/>
-    <touch name="touch_005_c1" site="cs_005_c1"/>
-    <touch name="touch_006_c0" site="cs_006_c0"/>
-    <touch name="touch_006_c1" site="cs_006_c1"/>
-    <touch name="touch_007_c0" site="cs_007_c0"/>
-    <touch name="touch_007_c1" site="cs_007_c1"/>
-    <touch name="touch_008_c0" site="cs_008_c0"/>
-    <touch name="touch_008_c1" site="cs_008_c1"/>
-    <touch name="touch_009_c0" site="cs_009_c0"/>
-    <touch name="touch_009_c1" site="cs_009_c1"/>
-    <touch name="touch_010_c0" site="cs_010_c0"/>
-    <touch name="touch_010_c1" site="cs_010_c1"/>
+        <touch name="touch_001_c0" site="cs_001_c0" />
+        <touch name="touch_001_c1" site="cs_001_c1" />
+        <touch name="touch_002_c0" site="cs_002_c0" />
+        <touch name="touch_002_c1" site="cs_002_c1" />
+        <touch name="touch_003_c0" site="cs_003_c0" />
+        <touch name="touch_003_c1" site="cs_003_c1" />
+        <touch name="touch_004_c0" site="cs_004_c0" />
+        <touch name="touch_004_c1" site="cs_004_c1" />
+        <touch name="touch_005_c0" site="cs_005_c0" />
+        <touch name="touch_005_c1" site="cs_005_c1" />
+        <touch name="touch_006_c0" site="cs_006_c0" />
+        <touch name="touch_006_c1" site="cs_006_c1" />
+        <touch name="touch_007_c0" site="cs_007_c0" />
+        <touch name="touch_007_c1" site="cs_007_c1" />
+        <touch name="touch_008_c0" site="cs_008_c0" />
+        <touch name="touch_008_c1" site="cs_008_c1" />
+        <touch name="touch_009_c0" site="cs_009_c0" />
+        <touch name="touch_009_c1" site="cs_009_c1" />
+        <touch name="touch_010_c0" site="cs_010_c0" />
+        <touch name="touch_010_c1" site="cs_010_c1" />
+        <touch name="touch_011_c0" site="cs_011_c0" />
+        <touch name="touch_011_c1" site="cs_011_c1" />
+        <touch name="touch_012_c0" site="cs_012_c0" />
+        <touch name="touch_012_c1" site="cs_012_c1" />
+        <touch name="touch_013_c0" site="cs_013_c0" />
+        <touch name="touch_013_c1" site="cs_013_c1" />
+        <touch name="touch_014_c0" site="cs_014_c0" />
+        <touch name="touch_014_c1" site="cs_014_c1" />
+        <touch name="touch_015_c0" site="cs_015_c0" />
+        <touch name="touch_015_c1" site="cs_015_c1" />
+        <touch name="touch_016_c0" site="cs_016_c0" />
+        <touch name="touch_016_c1" site="cs_016_c1" />
+        <touch name="touch_017_c0" site="cs_017_c0" />
+        <touch name="touch_017_c1" site="cs_017_c1" />
+        <touch name="touch_018_c0" site="cs_018_c0" />
+        <touch name="touch_018_c1" site="cs_018_c1" />
+        <touch name="touch_019_c0" site="cs_019_c0" />
+        <touch name="touch_019_c1" site="cs_019_c1" />
+        <touch name="touch_020_c0" site="cs_020_c0" />
+        <touch name="touch_020_c1" site="cs_020_c1" />
+        <touch name="touch_021_c0" site="cs_021_c0" />
+        <touch name="touch_021_c1" site="cs_021_c1" />
   </sensor>
 </mujoco>
