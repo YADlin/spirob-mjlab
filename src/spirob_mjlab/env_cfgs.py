@@ -39,7 +39,7 @@ from spirob_mjlab.entities import (
 
 # Stage-1 action dynamics. Full range remains accessible; only command rate is limited.
 CABLE_ACTION_SCALE_FULL_RANGE = 0.5 * (CABLE_CTRL_RANGE[1] - CABLE_CTRL_RANGE[0])
-CABLE_MAX_DELTA_PER_CONTROL_STEP = 5.0e-3  # metres/control-step. 0.03 m takes ~2 s at 100 Hz.
+CABLE_MAX_DELTA_PER_CONTROL_STEP = 2.5e-3  # metres/control-step; 0.03 m takes ~0.12 s at 100 Hz.
 
 
 def _robot_tip_cfg() -> SceneEntityCfg:
@@ -150,13 +150,13 @@ def _common_viewer_cfg() -> ViewerConfig:
 
 def _common_sim_cfg() -> SimulationCfg:
     return SimulationCfg(
-        nconmax=192,
-        njmax=800,
-        contact_sensor_maxmatch=128,
+        nconmax=512,
+        njmax=1400,
+        contact_sensor_maxmatch=256,
         mujoco=MujocoCfg(
-            timestep=0.0005,
-            iterations=20,
-            ls_iterations=20,
+            timestep=0.0001,
+            iterations=50,
+            ls_iterations=50,
             impratio=10,
             cone="elliptic",
             integrator="implicitfast",
@@ -200,7 +200,7 @@ def spirob_minimal_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         terminations=terminations,
         viewer=_common_viewer_cfg(),
         sim=_common_sim_cfg(),
-        decimation=20,
+        decimation=100,
         episode_length_s=5.0 if not play else 1.0e9,
     )
 
@@ -254,7 +254,7 @@ def spirob_bucket_drop_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         terminations=terminations,
         viewer=_common_viewer_cfg(),
         sim=_common_sim_cfg(),
-        decimation=20,
+        decimation=100,
         episode_length_s=2.0 if not play else 1.0e9,
     )
 
@@ -271,12 +271,18 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
         insufficient and we should add reach/contact shaping in Stage 2.
     """
     bucket_site_cfg = _bucket_site_cfg()
+    robot_tip_cfg = _robot_tip_cfg()
 
     rewards = {
         "egg_to_bucket_distance": RewardTermCfg(
             func=mdp.egg_to_bucket_distance_reward,
             weight=1.0,
             params={"asset_cfg": bucket_site_cfg, "distance_scale": 0.10},
+        ),
+        "reach_egg": RewardTermCfg(
+            func=mdp.reach_reward,
+            weight=0.25,
+            params={"asset_cfg": robot_tip_cfg, "std": 0.06},
         ),
         "inside_bucket": RewardTermCfg(
             func=mdp.egg_inside_bucket_reward,
@@ -319,7 +325,7 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
         terminations=terminations,
         viewer=_common_viewer_cfg(),
         sim=_common_sim_cfg(),
-        decimation=20,
+        decimation=100,
         # Give the robot enough time to accidentally discover contact/motion.
         episode_length_s=8.0 if not play else 1.0e9,
     )
