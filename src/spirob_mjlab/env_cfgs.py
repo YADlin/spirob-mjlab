@@ -39,7 +39,7 @@ from spirob_mjlab.entities import (
 
 # Stage-1 action dynamics. Full range remains accessible; only command rate is limited.
 CABLE_ACTION_SCALE_FULL_RANGE = 0.5 * (CABLE_CTRL_RANGE[1] - CABLE_CTRL_RANGE[0])
-CABLE_MAX_DELTA_PER_CONTROL_STEP = 2.5e-3  # metres/control-step; 0.03 m takes ~0.12 s at 100 Hz.
+CABLE_MAX_DELTA_PER_CONTROL_STEP = 1e-3  # metres/control-step; 0.03 m takes ~0.12 s at 100 Hz.
 
 
 def _robot_tip_cfg() -> SceneEntityCfg:
@@ -276,7 +276,7 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
     rewards = {
         "egg_to_bucket_distance": RewardTermCfg(
             func=mdp.egg_to_bucket_distance_reward,
-            weight=1.0,
+            weight=1.25,
             params={"asset_cfg": bucket_site_cfg, "distance_scale": 0.10},
         ),
         "reach_egg": RewardTermCfg(
