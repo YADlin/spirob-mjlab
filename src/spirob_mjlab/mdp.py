@@ -189,12 +189,86 @@ def egg_fell(env: "ManagerBasedRlEnv", min_z: float = 0.03) -> torch.Tensor:
     """Safety termination if the egg falls below the useful workspace."""
     return egg_position(env)[:, 2] < min_z
 
+def _world_xy_to_env_local(
+    env: "ManagerBasedRlEnv",
+    position_w: torch.Tensor,
+) -> torch.Tensor:
+    """Convert batched world-frame XY positions to environment-local XY."""
+    return position_w[:, :2] - env.scene.env_origins[:, :2]
 
 def egg_out_of_bounds(env: "ManagerBasedRlEnv", xy_limit: float = 0.40) -> torch.Tensor:
     """Terminate if the egg escapes the small manipulation workspace."""
-    egg = egg_position(env)
-    return (torch.abs(egg[:, 0]) > xy_limit) | (torch.abs(egg[:, 1]) > xy_limit)
+    egg_xy_local = _world_xy_to_env_local(env, egg_position(env),)
+    return torch.any(torch.abs(egg_xy_local) > xy_limit, dim=-1,)
 
 
 def nan_state(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return ~torch.isfinite(env.sim.data.qacc).all(dim=-1)
+
+def egg_directed_progress_from_spawn(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    egg_spawn_xy: tuple[float, float] = (0.05, 0.15),
+    progress_scale: float = 0.005,
+    max_progress: float = 0.10,
+) -> torch.Tensor:
+    """Reward egg XY movement specifically toward the bucket.
+
+    This is deterministic Stage-1 shaping:
+    - It does not reward touching.
+    - It does not reward random displacement.
+    - It gives a strong reward for the first few millimetres of egg motion
+      in the bucket direction.
+    """
+    egg_xy = egg_position(env)[:, :2]
+    bucket_xy = bucket_position(env, asset_cfg)[:, :2]
+
+    spawn_xy = torch.tensor(
+        egg_spawn_xy,
+        device=egg_xy.device,
+        dtype=egg_xy.dtype,
+    ).unsqueeze(0)
+
+    direction = bucket_xy - spawn_xy
+    direction = direction / torch.clamp(
+        torch.linalg.norm(direction, dim=-1, keepdim=True),
+        min=1.0e-6,
+    )
+
+    displacement = egg_xy - spawn_xy
+    progress = torch.sum(displacement * direction, dim=-1)
+
+    progress = torch.clamp(progress, min=0.0, max=max_progress)
+    return progress / progress_scale
+
+def egg_first_push_bonus(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    egg_spawn_xy: tuple[float, float] = (0.05, 0.15),
+    push_scale: float = 0.002,
+) -> torch.Tensor:
+    """Saturating bonus for the first useful egg displacement.
+
+    A 1-2 mm push toward the bucket becomes noticeable.
+    The exponential saturates, so it does not dominate the whole task forever.
+    """
+    egg_xy = egg_position(env)[:, :2]
+    bucket_xy = bucket_position(env, asset_cfg)[:, :2]
+
+    spawn_xy = torch.tensor(
+        egg_spawn_xy,
+        device=egg_xy.device,
+        dtype=egg_xy.dtype,
+    ).unsqueeze(0)
+
+    direction = bucket_xy - spawn_xy
+    direction = direction / torch.clamp(
+        torch.linalg.norm(direction, dim=-1, keepdim=True),
+        min=1.0e-6,
+    )
+
+    displacement = egg_xy - spawn_xy
+    progress = torch.sum(displacement * direction, dim=-1)
+    progress = torch.clamp(progress, min=0.0)
+
+    return 1.0 - torch.exp(-progress / push_scale)
