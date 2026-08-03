@@ -276,12 +276,31 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
     rewards = {
         "egg_to_bucket_distance": RewardTermCfg(
             func=mdp.egg_to_bucket_distance_reward,
-            weight=1.25,
+            weight=1.00,
             params={"asset_cfg": bucket_site_cfg, "distance_scale": 0.10},
         ),
+        # "egg_directed_progress": RewardTermCfg(
+        # func=mdp.egg_directed_progress_from_spawn,
+        # weight=2.0,
+        # params={
+        #     "asset_cfg": bucket_site_cfg,
+        #     "egg_spawn_xy": (0.05, 0.15),
+        #     "progress_scale": 0.005,
+        #     "max_progress": 0.10,
+        #     },
+        # ),
+        # "egg_first_push": RewardTermCfg(
+        # func=mdp.egg_first_push_bonus,
+        # weight=1.0,
+        # params={
+        #     "asset_cfg": bucket_site_cfg,
+        #     "egg_spawn_xy": (0.05, 0.15),
+        #     "push_scale": 0.002,
+        #     },
+        # ),
         "reach_egg": RewardTermCfg(
             func=mdp.reach_reward,
-            weight=0.25,
+            weight=0.50,
             params={"asset_cfg": robot_tip_cfg, "std": 0.06},
         ),
         "inside_bucket": RewardTermCfg(
