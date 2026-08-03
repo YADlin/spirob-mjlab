@@ -220,22 +220,22 @@ def egg_directed_progress_from_spawn(
     - It gives a strong reward for the first few millimetres of egg motion
       in the bucket direction.
     """
-    egg_xy = egg_position(env)[:, :2]
-    bucket_xy = bucket_position(env, asset_cfg)[:, :2]
+    egg_xy_local = (egg_position(env)[:, :2] - env.scene.env_origins[:, :2])
+    bucket_xy_local = (bucket_position(env, asset_cfg)[:, :2]- env.scene.env_origins[:, :2])
 
     spawn_xy = torch.tensor(
         egg_spawn_xy,
-        device=egg_xy.device,
-        dtype=egg_xy.dtype,
+        device=egg_xy_local.device,
+        dtype=egg_xy_local.dtype,
     ).unsqueeze(0)
 
-    direction = bucket_xy - spawn_xy
+    direction = bucket_xy_local - spawn_xy
     direction = direction / torch.clamp(
         torch.linalg.norm(direction, dim=-1, keepdim=True),
         min=1.0e-6,
     )
 
-    displacement = egg_xy - spawn_xy
+    displacement = egg_xy_local - spawn_xy
     progress = torch.sum(displacement * direction, dim=-1)
 
     progress = torch.clamp(progress, min=0.0, max=max_progress)
@@ -252,22 +252,22 @@ def egg_first_push_bonus(
     A 1-2 mm push toward the bucket becomes noticeable.
     The exponential saturates, so it does not dominate the whole task forever.
     """
-    egg_xy = egg_position(env)[:, :2]
-    bucket_xy = bucket_position(env, asset_cfg)[:, :2]
+    egg_xy_local = (egg_position(env)[:, :2] - env.scene.env_origins[:, :2])
+    bucket_xy_local = (bucket_position(env, asset_cfg)[:, :2]- env.scene.env_origins[:, :2])
 
     spawn_xy = torch.tensor(
         egg_spawn_xy,
-        device=egg_xy.device,
-        dtype=egg_xy.dtype,
+        device=egg_xy_local.device,
+        dtype=egg_xy_local.dtype,
     ).unsqueeze(0)
 
-    direction = bucket_xy - spawn_xy
+    direction = bucket_xy_local - spawn_xy
     direction = direction / torch.clamp(
         torch.linalg.norm(direction, dim=-1, keepdim=True),
         min=1.0e-6,
     )
 
-    displacement = egg_xy - spawn_xy
+    displacement = egg_xy_local - spawn_xy
     progress = torch.sum(displacement * direction, dim=-1)
     progress = torch.clamp(progress, min=0.0)
 
