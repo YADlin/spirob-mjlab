@@ -167,6 +167,20 @@ def egg_inside_bucket(
     z_inside = (delta[:, 2] > min_z_offset) & (delta[:, 2] < max_z_offset)
     return com_close & z_inside
 
+def egg_inside_bucket_terminal_indicator(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    com_distance_threshold: float = 0.015,
+    max_z_offset: float = 0.02,
+) -> torch.Tensor:
+    """Return a one-shot successful-placement indicator."""
+    success = egg_inside_bucket(
+        env,
+        asset_cfg=asset_cfg,
+        com_distance_threshold=com_distance_threshold,
+        max_z_offset=max_z_offset,
+    )
+    return success.to(dtype=torch.float32) / env.step_dt
 
 def egg_inside_bucket_reward(
     env: "ManagerBasedRlEnv",
@@ -184,10 +198,17 @@ def egg_inside_bucket_reward(
         max_z_offset=max_z_offset,
     ).float()
 
-
 def egg_fell(env: "ManagerBasedRlEnv", min_z: float = 0.03) -> torch.Tensor:
     """Safety termination if the egg falls below the useful workspace."""
     return egg_position(env)[:, 2] < min_z
+
+def egg_fell_terminal_indicator(env: "ManagerBasedRlEnv",) -> torch.Tensor:
+    """Return a one-shot egg-fall indicator.
+
+    Reward terms are integrated over the control timestep. Dividing by
+    step_dt makes the configured weight behave as an actual terminal amount.
+    """
+    return egg_fell(env).to(dtype=torch.float32) / env.step_dt
 
 def _world_xy_to_env_local(
     env: "ManagerBasedRlEnv",

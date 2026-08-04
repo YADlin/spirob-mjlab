@@ -303,15 +303,31 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
             weight=0.50,
             params={"asset_cfg": robot_tip_cfg, "std": 0.06},
         ),
+        # "inside_bucket": RewardTermCfg(
+        #     func=mdp.egg_inside_bucket_reward,
+        #     weight=25.0,
+        #     params={
+        #         "asset_cfg": bucket_site_cfg,
+        #         "com_distance_threshold": 0.015,
+        #         "max_z_offset": 0.020,
+        #     },
+        # ),
+
         "inside_bucket": RewardTermCfg(
-            func=mdp.egg_inside_bucket_reward,
+            func=mdp.egg_inside_bucket_terminal_indicator,
             weight=25.0,
             params={
                 "asset_cfg": bucket_site_cfg,
                 "com_distance_threshold": 0.015,
-                "max_z_offset": 0.020,
+                "max_z_offset": 0.02,
             },
         ),
+
+        "egg_fell_penalty": RewardTermCfg(
+            func=mdp.egg_fell_terminal_indicator,
+            weight=-10.0,
+        ),
+
         # Keep this tiny. Too much action penalty encourages doing nothing.
         "action_l2": RewardTermCfg(func=mdp.action_l2, weight=-0.0005),
     }
