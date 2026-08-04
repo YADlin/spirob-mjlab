@@ -279,6 +279,16 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
             weight=1.00,
             params={"asset_cfg": bucket_site_cfg, "distance_scale": 0.10},
         ),
+
+        "egg_delta_progress": RewardTermCfg(
+            func=mdp.egg_to_bucket_delta_progress,
+            weight=1.0,
+            params={
+                "asset_cfg": bucket_site_cfg,
+                "progress_scale": 0.005,
+            },
+        ),
+
         # "egg_directed_progress": RewardTermCfg(
         # func=mdp.egg_directed_progress_from_spawn,
         # weight=2.0,

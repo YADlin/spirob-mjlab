@@ -293,3 +293,71 @@ def egg_first_push_bonus(
     progress = torch.clamp(progress, min=0.0)
 
     return 1.0 - torch.exp(-progress / push_scale)
+
+def egg_to_bucket_delta_progress(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    progress_scale: float = 0.005,
+) -> torch.Tensor:
+    """Reward the signed step-to-step reduction in egg-to-bucket distance.
+
+    A net 5 mm movement toward the bucket gives approximately +1 total
+    reward across the corresponding control steps. Moving away produces
+    a negative reward. Holding the egg stationary produces zero.
+    """
+
+    egg_xy = (
+        egg_position(env)[:, :2]
+        - env.scene.env_origins[:, :2]
+    )
+
+    bucket_xy = (
+        bucket_position(env, asset_cfg)[:, :2]
+        - env.scene.env_origins[:, :2]
+    )
+
+    current_distance = torch.linalg.norm(
+        egg_xy - bucket_xy,
+        dim=-1,
+    )
+
+    buffer_name = "_stage1_previous_egg_bucket_distance"
+
+    previous_distance = getattr(env, buffer_name, None)
+
+    if (
+        previous_distance is None
+        or previous_distance.shape != current_distance.shape
+    ):
+        setattr(
+            env,
+            buffer_name,
+            current_distance.detach().clone(),
+        )
+        return torch.zeros_like(current_distance)
+
+    progress = previous_distance - current_distance
+
+    # Do not interpret a newly reset environment as object movement.
+    new_episode = env.episode_length_buf <= 1
+    progress = torch.where(
+        new_episode,
+        torch.zeros_like(progress),
+        progress,
+    )
+
+    setattr(
+        env,
+        buffer_name,
+        current_distance.detach().clone(),
+    )
+
+    # RewardManager multiplies terms by step_dt. Dividing here makes the
+    # final contribution equal to the intended normalized progress.
+    normalized_progress = progress / progress_scale
+
+    return torch.clamp(
+        normalized_progress,
+        min=-1.0,
+        max=1.0,
+    ) / env.step_dt
