@@ -361,3 +361,57 @@ def egg_to_bucket_delta_progress(
         min=-1.0,
         max=1.0,
     ) / env.step_dt
+
+###################################################
+
+CAPTURE_SITE_NAMES = (
+    "cs_017_c0",
+    "cs_017_c1",
+    "cs_018_c0",
+    "cs_018_c1",
+    "cs_019_c0",
+    "cs_019_c1",
+    "cs_020_c0",
+    "cs_020_c1",
+    "cs_021_c0",
+    "cs_021_c1",
+)
+
+
+def capture_center_position(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+    """World position of the virtual distal-spiral capture centre.
+
+    The paired sites cancel the lateral offset of each link. Averaging the
+    final five links approximates the centre of the distal curling region.
+    """
+    robot: Entity = env.scene[asset_cfg.name]
+
+    site_positions = robot.data.site_pos_w[:, asset_cfg.site_ids]
+
+    return torch.mean(site_positions, dim=1)
+
+
+def capture_center_to_egg(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+    """Vector from the distal capture centre to the egg COM."""
+    return egg_position(env) - capture_center_position(env, asset_cfg)
+
+
+def capture_center_reward(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg,
+    std: float = 0.04,
+) -> torch.Tensor:
+    """Reward positioning the egg near the centre of the distal spiral."""
+    delta = capture_center_to_egg(env, asset_cfg)
+
+    distance_squared = torch.sum(delta * delta, dim=-1)
+
+    return torch.exp(
+        -distance_squared / (std * std)
+    )

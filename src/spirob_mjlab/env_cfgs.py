@@ -63,9 +63,10 @@ def _common_scene_entities(*, drop_task: bool = False):
     }
 
 
-def _common_observations(*, include_touch: bool = True):
+def _common_observations(*, include_touch: bool = True, include_capture: bool = False,):
     robot_tip_cfg = _robot_tip_cfg()
     bucket_site_cfg = _bucket_site_cfg()
+    robot_capture_cfg = _robot_capture_cfg()
 
     actor_terms = {
         "tendon_len": ObservationTermCfg(
@@ -87,14 +88,15 @@ def _common_observations(*, include_touch: bool = True):
         "last_action": ObservationTermCfg(func=mdp.last_action),
     }
     if include_touch:
-        actor_terms = {
-            "tendon_len": actor_terms["tendon_len"],
-            "tendon_vel": actor_terms["tendon_vel"],
-            "touch": ObservationTermCfg(func=mdp.touch_values),
-            "tip_to_egg": actor_terms["tip_to_egg"],
-            "egg_to_bucket": actor_terms["egg_to_bucket"],
-            "last_action": actor_terms["last_action"],
-        }
+        actor_terms["touch"] = ObservationTermCfg(
+            func=mdp.touch_values,
+            )
+
+    if include_capture:
+        actor_terms["capture_center_to_egg"] = ObservationTermCfg(
+            func=mdp.capture_center_to_egg,
+            params={"asset_cfg": robot_capture_cfg},
+            )
 
     return {
         "actor": ObservationGroupCfg(actor_terms, enable_corruption=False),
@@ -272,12 +274,16 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
     """
     bucket_site_cfg = _bucket_site_cfg()
     robot_tip_cfg = _robot_tip_cfg()
+    robot_capture_cfg = _robot_capture_cfg()
 
     rewards = {
         "egg_to_bucket_distance": RewardTermCfg(
             func=mdp.egg_to_bucket_distance_reward,
             weight=1.00,
-            params={"asset_cfg": bucket_site_cfg, "distance_scale": 0.10},
+            params={
+                "asset_cfg": bucket_site_cfg, 
+                "distance_scale": 0.10
+            },
         ),
 
         "egg_delta_progress": RewardTermCfg(
@@ -310,8 +316,11 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
         # ),
         "reach_egg": RewardTermCfg(
             func=mdp.reach_reward,
-            weight=0.50,
-            params={"asset_cfg": robot_tip_cfg, "std": 0.06},
+            weight=0.25,
+            params={
+                "asset_cfg": robot_tip_cfg, 
+                "std": 0.06
+            },
         ),
         # "inside_bucket": RewardTermCfg(
         #     func=mdp.egg_inside_bucket_reward,
@@ -336,6 +345,15 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
         "egg_fell_penalty": RewardTermCfg(
             func=mdp.egg_fell_terminal_indicator,
             weight=-10.0,
+        ),
+
+        "capture_egg_center": RewardTermCfg(
+            func=mdp.capture_center_reward,
+            weight=1.0,
+            params={
+                "asset_cfg": robot_capture_cfg,
+                "std": 0.04,
+            },
         ),
 
         # Keep this tiny. Too much action penalty encourages doing nothing.
@@ -373,4 +391,27 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
         decimation=100,
         # Give the robot enough time to accidentally discover contact/motion.
         episode_length_s=8.0 if not play else 1.0e9,
+    )
+
+#######################################################################
+
+CAPTURE_SITE_NAMES = (
+    "cs_017_c0",
+    "cs_017_c1",
+    "cs_018_c0",
+    "cs_018_c1",
+    "cs_019_c0",
+    "cs_019_c1",
+    "cs_020_c0",
+    "cs_020_c1",
+    "cs_021_c0",
+    "cs_021_c1",
+)
+
+
+def _robot_capture_cfg() -> SceneEntityCfg:
+    return SceneEntityCfg(
+        "robot",
+        site_names=CAPTURE_SITE_NAMES,
+        preserve_order=True,
     )
