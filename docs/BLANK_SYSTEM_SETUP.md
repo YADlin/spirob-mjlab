@@ -11,7 +11,7 @@ Before beginning, obtain:
 
 1. **SpiRob Git repository URL**
 2. **Branch:** `prof-share-stage1`
-3. **Exact tested mjlab commit:** `<MJLAB_COMMIT_HASH>`
+3. **Exact tested mjlab commit:** `0cdc56246999409b83622764f5b38edb660cf16e`
 4. Optional demonstration checkpoint: `<CHECKPOINT_FILE_OR_RELEASE_URL>`
 
 The SpiRob repository contains the robot XMLs, meshes, custom mjlab task package, actions, observations, rewards, terminations, PPO configuration, and documentation.
@@ -133,7 +133,7 @@ If this fails, stop and fix the mjlab/GPU installation before installing SpiRob.
 
 ```bash
 cd ~/Research_Work
-git clone <SPIROB_REPOSITORY_URL> spirob-mjlab
+git clone https://github.com/YADlin/spirob-mjlab spirob-mjlab
 cd spirob-mjlab
 git switch prof-share-stage1
 ```
