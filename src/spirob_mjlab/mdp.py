@@ -364,35 +364,68 @@ def egg_to_bucket_delta_progress(
 
 ###################################################
 
-CAPTURE_SITE_NAMES = (
-    "cs_017_c0",
-    "cs_017_c1",
-    "cs_018_c0",
-    "cs_018_c1",
-    "cs_019_c0",
-    "cs_019_c1",
-    "cs_020_c0",
-    "cs_020_c1",
-    "cs_021_c0",
-    "cs_021_c1",
-)
+def capture_link_midpoints(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+    """Return one midpoint for each selected capture link.
 
+    Capture sites must be ordered:
+        link_i_c0,
+        link_i_c1,
+        link_i+1_c0,
+        link_i+1_c1,
+        ...
+
+    Returns:
+        shape = (num_envs, num_capture_links, 3)
+    """
+
+    robot: Entity = env.scene[asset_cfg.name]
+
+    site_positions = robot.data.site_pos_w[
+        :,
+        asset_cfg.site_ids,
+        :3,
+    ]
+
+    num_sites = site_positions.shape[1]
+
+    if num_sites % 2 != 0:
+        raise RuntimeError(
+            "Capture region requires exactly two sites "
+            "per link: c0 and c1."
+        )
+
+    num_links = num_sites // 2
+
+    paired_positions = site_positions.reshape(
+        site_positions.shape[0],
+        num_links,
+        2,
+        3,
+    )
+
+    return torch.mean(
+        paired_positions,
+        dim=2,
+    )
 
 def capture_center_position(
     env: "ManagerBasedRlEnv",
     asset_cfg: SceneEntityCfg,
 ) -> torch.Tensor:
-    """World position of the virtual distal-spiral capture centre.
+    """Centroid of the selected capture-link midpoints."""
 
-    The paired sites cancel the lateral offset of each link. Averaging the
-    final five links approximates the centre of the distal curling region.
-    """
-    robot: Entity = env.scene[asset_cfg.name]
+    link_midpoints = capture_link_midpoints(
+        env,
+        asset_cfg,
+    )
 
-    site_positions = robot.data.site_pos_w[:, asset_cfg.site_ids]
-
-    return torch.mean(site_positions, dim=1)
-
+    return torch.mean(
+        link_midpoints,
+        dim=1,
+    )
 
 def capture_center_to_egg(
     env: "ManagerBasedRlEnv",

@@ -10,6 +10,7 @@ No randomization is used here.
 """
 
 from __future__ import annotations
+from dataclasses import dataclass
 
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp import time_out
@@ -41,6 +42,79 @@ from spirob_mjlab.entities import (
 CABLE_ACTION_SCALE_FULL_RANGE = 0.5 * (CABLE_CTRL_RANGE[1] - CABLE_CTRL_RANGE[0])
 CABLE_MAX_DELTA_PER_CONTROL_STEP = 1e-3  # metres/control-step; 0.03 m takes ~0.12 s at 100 Hz.
 
+@dataclass(frozen=True)
+class CaptureRegionSpec:
+    """Definition of a contiguous distal capture region.
+
+    Example:
+        num_links=10, end_link=21 selects links 12 through 21.
+    """
+
+    num_links: int
+    end_link: int = 21
+    first_available_link: int = 1
+
+    def __post_init__(self) -> None:
+        if self.num_links < 2:
+            raise ValueError(
+                "Capture region must contain at least two links."
+            )
+
+        if self.end_link < self.first_available_link:
+            raise ValueError(
+                "end_link must not be below first_available_link."
+            )
+
+        if self.start_link < self.first_available_link:
+            raise ValueError(
+                f"num_links={self.num_links} selects link "
+                f"{self.start_link}, but the first available link is "
+                f"{self.first_available_link}."
+            )
+
+    @property
+    def start_link(self) -> int:
+        return self.end_link - self.num_links + 1
+
+    @property
+    def link_indices(self) -> tuple[int, ...]:
+        return tuple(
+            range(self.start_link, self.end_link + 1)
+        )
+
+    @property
+    def site_names(self) -> tuple[str, ...]:
+        """Generate c0 and c1 site names in paired link order."""
+        return tuple(
+            f"cs_{link_index:03d}_c{side}"
+            for link_index in self.link_indices
+            for side in (0, 1)
+        )
+
+    def scene_entity_cfg(self) -> SceneEntityCfg:
+        return SceneEntityCfg(
+            "robot",
+            site_names=self.site_names,
+            preserve_order=True,
+        )
+
+STAGE1_CAPTURE_REGION = CaptureRegionSpec(
+    num_links=10,
+    end_link=21,
+)
+
+print(
+    "[Stage 1 capture region] "
+    f"links={STAGE1_CAPTURE_REGION.start_link}"
+    f"–{STAGE1_CAPTURE_REGION.end_link}, "
+    f"num_links={STAGE1_CAPTURE_REGION.num_links}, "
+    f"num_sites={len(STAGE1_CAPTURE_REGION.site_names)}"
+)
+
+def _robot_capture_cfg(
+    region: CaptureRegionSpec = STAGE1_CAPTURE_REGION,
+) -> SceneEntityCfg:
+    return region.scene_entity_cfg()
 
 def _robot_tip_cfg() -> SceneEntityCfg:
     return SceneEntityCfg(
@@ -66,7 +140,7 @@ def _common_scene_entities(*, drop_task: bool = False):
 def _common_observations(*, include_touch: bool = True, include_capture: bool = False,):
     robot_tip_cfg = _robot_tip_cfg()
     bucket_site_cfg = _bucket_site_cfg()
-    robot_capture_cfg = _robot_capture_cfg()
+    capture_cfg = _robot_capture_cfg(STAGE1_CAPTURE_REGION)
 
     actor_terms = {
         "tendon_len": ObservationTermCfg(
@@ -95,7 +169,7 @@ def _common_observations(*, include_touch: bool = True, include_capture: bool = 
     if include_capture:
         actor_terms["capture_center_to_egg"] = ObservationTermCfg(
             func=mdp.capture_center_to_egg,
-            params={"asset_cfg": robot_capture_cfg},
+            params={"asset_cfg": capture_cfg},
             )
 
     return {
@@ -274,7 +348,7 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
     """
     bucket_site_cfg = _bucket_site_cfg()
     robot_tip_cfg = _robot_tip_cfg()
-    robot_capture_cfg = _robot_capture_cfg()
+    capture_cfg = _robot_capture_cfg(STAGE1_CAPTURE_REGION)
 
     rewards = {
         "egg_to_bucket_distance": RewardTermCfg(
@@ -351,7 +425,7 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
             func=mdp.capture_center_reward,
             weight=1.0,
             params={
-                "asset_cfg": robot_capture_cfg,
+                "asset_cfg": capture_cfg,
                 "std": 0.04,
             },
         ),
@@ -394,24 +468,3 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
     )
 
 #######################################################################
-
-CAPTURE_SITE_NAMES = (
-    "cs_017_c0",
-    "cs_017_c1",
-    "cs_018_c0",
-    "cs_018_c1",
-    "cs_019_c0",
-    "cs_019_c1",
-    "cs_020_c0",
-    "cs_020_c1",
-    "cs_021_c0",
-    "cs_021_c1",
-)
-
-
-def _robot_capture_cfg() -> SceneEntityCfg:
-    return SceneEntityCfg(
-        "robot",
-        site_names=CAPTURE_SITE_NAMES,
-        preserve_order=True,
-    )
