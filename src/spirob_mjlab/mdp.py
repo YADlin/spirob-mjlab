@@ -35,11 +35,6 @@ def tendon_velocity(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = ROBOT_
     return robot.data.tendon_vel[:, asset_cfg.tendon_ids]
 
 
-def tip_position(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = ROBOT_CFG) -> torch.Tensor:
-    robot: Entity = env.scene[asset_cfg.name]
-    return robot.data.site_pos_w[:, asset_cfg.site_ids].squeeze(1)
-
-
 def egg_position(env: "ManagerBasedRlEnv", object_name: str = "egg") -> torch.Tensor:
     obj: Entity = env.scene[object_name]
     return obj.data.root_link_pos_w
@@ -48,10 +43,6 @@ def egg_position(env: "ManagerBasedRlEnv", object_name: str = "egg") -> torch.Te
 def bucket_position(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = BUCKET_CFG) -> torch.Tensor:
     bucket: Entity = env.scene[asset_cfg.name]
     return bucket.data.site_pos_w[:, asset_cfg.site_ids].squeeze(1)
-
-
-def tip_to_egg(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = ROBOT_CFG) -> torch.Tensor:
-    return egg_position(env) - tip_position(env, asset_cfg)
 
 
 def egg_to_bucket(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = BUCKET_CFG) -> torch.Tensor:
@@ -68,42 +59,10 @@ def last_action(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return env.action_manager.action
 
 
-def reach_reward(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg = ROBOT_CFG,
-    std: float = 0.06,
-) -> torch.Tensor:
-    """Smooth reach reward, 1 near the egg and ~0 far away."""
-    d = tip_to_egg(env, asset_cfg)
-    return torch.exp(-torch.sum(d * d, dim=-1) / (std * std))
-
-
-def contact_reward(
-    env: "ManagerBasedRlEnv",
-    n_sensors: int = 42,
-    threshold: float = 1.0e-4,
-) -> torch.Tensor:
-    """Small reward proportional to the number of active touch sensors."""
-    return touch_values(env, n_sensors=n_sensors, threshold=threshold).mean(dim=-1)
-
-
 def action_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
     """Positive L2 action cost; give it a negative RewardTermCfg weight."""
     a = env.action_manager.action
     return torch.sum(a * a, dim=-1)
-
-
-def reached_egg(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg = ROBOT_CFG,
-    distance_threshold: float = 0.012,
-    n_sensors: int = 42,
-    touch_threshold: float = 1.0e-4,
-) -> torch.Tensor:
-    """Terminate as success when close enough or when any touch sensor fires."""
-    d = torch.linalg.norm(tip_to_egg(env, asset_cfg), dim=-1)
-    touched = touch_values(env, n_sensors=n_sensors, threshold=touch_threshold).sum(dim=-1) > 0
-    return (d < distance_threshold) | touched
 
 
 def egg_to_bucket_distance(
@@ -120,22 +79,6 @@ def egg_to_bucket_xy_distance(
 ) -> torch.Tensor:
     """XY distance from egg root/COM to bucket target site."""
     return torch.linalg.norm(egg_to_bucket(env, asset_cfg)[:, :2], dim=-1)
-
-
-def egg_to_bucket_distance_reward(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg = BUCKET_CFG,
-    distance_scale: float = 0.10,
-) -> torch.Tensor:
-    """Minimal dense manipulation reward.
-
-    Returns a larger value as the egg approaches the bucket. This deliberately
-    ignores whether the robot touched the egg. At this stage, we want to observe
-    whether random tendon exploration can ever move the object in the right
-    direction. If it cannot, the next reward term to add is reach/contact.
-    """
-    d = egg_to_bucket_distance(env, asset_cfg)
-    return -d / distance_scale
 
 
 def egg_to_bucket_smooth_reward(
@@ -226,73 +169,6 @@ def egg_out_of_bounds(env: "ManagerBasedRlEnv", xy_limit: float = 0.40) -> torch
 def nan_state(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return ~torch.isfinite(env.sim.data.qacc).all(dim=-1)
 
-def egg_directed_progress_from_spawn(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg = BUCKET_CFG,
-    egg_spawn_xy: tuple[float, float] = (0.05, 0.15),
-    progress_scale: float = 0.005,
-    max_progress: float = 0.10,
-) -> torch.Tensor:
-    """Reward egg XY movement specifically toward the bucket.
-
-    This is deterministic Stage-1 shaping:
-    - It does not reward touching.
-    - It does not reward random displacement.
-    - It gives a strong reward for the first few millimetres of egg motion
-      in the bucket direction.
-    """
-    egg_xy_local = (egg_position(env)[:, :2] - env.scene.env_origins[:, :2])
-    bucket_xy_local = (bucket_position(env, asset_cfg)[:, :2]- env.scene.env_origins[:, :2])
-
-    spawn_xy = torch.tensor(
-        egg_spawn_xy,
-        device=egg_xy_local.device,
-        dtype=egg_xy_local.dtype,
-    ).unsqueeze(0)
-
-    direction = bucket_xy_local - spawn_xy
-    direction = direction / torch.clamp(
-        torch.linalg.norm(direction, dim=-1, keepdim=True),
-        min=1.0e-6,
-    )
-
-    displacement = egg_xy_local - spawn_xy
-    progress = torch.sum(displacement * direction, dim=-1)
-
-    progress = torch.clamp(progress, min=0.0, max=max_progress)
-    return progress / progress_scale
-
-def egg_first_push_bonus(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg = BUCKET_CFG,
-    egg_spawn_xy: tuple[float, float] = (0.05, 0.15),
-    push_scale: float = 0.002,
-) -> torch.Tensor:
-    """Saturating bonus for the first useful egg displacement.
-
-    A 1-2 mm push toward the bucket becomes noticeable.
-    The exponential saturates, so it does not dominate the whole task forever.
-    """
-    egg_xy_local = (egg_position(env)[:, :2] - env.scene.env_origins[:, :2])
-    bucket_xy_local = (bucket_position(env, asset_cfg)[:, :2]- env.scene.env_origins[:, :2])
-
-    spawn_xy = torch.tensor(
-        egg_spawn_xy,
-        device=egg_xy_local.device,
-        dtype=egg_xy_local.dtype,
-    ).unsqueeze(0)
-
-    direction = bucket_xy_local - spawn_xy
-    direction = direction / torch.clamp(
-        torch.linalg.norm(direction, dim=-1, keepdim=True),
-        min=1.0e-6,
-    )
-
-    displacement = egg_xy_local - spawn_xy
-    progress = torch.sum(displacement * direction, dim=-1)
-    progress = torch.clamp(progress, min=0.0)
-
-    return 1.0 - torch.exp(-progress / push_scale)
 
 def egg_to_bucket_delta_progress(
     env: "ManagerBasedRlEnv",
@@ -362,89 +238,3 @@ def egg_to_bucket_delta_progress(
         max=1.0,
     ) / env.step_dt
 
-###################################################
-
-def capture_link_midpoints(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg,
-) -> torch.Tensor:
-    """Return one midpoint for each selected capture link.
-
-    Capture sites must be ordered:
-        link_i_c0,
-        link_i_c1,
-        link_i+1_c0,
-        link_i+1_c1,
-        ...
-
-    Returns:
-        shape = (num_envs, num_capture_links, 3)
-    """
-
-    robot: Entity = env.scene[asset_cfg.name]
-
-    site_positions = robot.data.site_pos_w[
-        :,
-        asset_cfg.site_ids,
-        :3,
-    ]
-
-    num_sites = site_positions.shape[1]
-
-    if num_sites % 2 != 0:
-        raise RuntimeError(
-            "Capture region requires exactly two sites "
-            "per link: c0 and c1."
-        )
-
-    num_links = num_sites // 2
-
-    paired_positions = site_positions.reshape(
-        site_positions.shape[0],
-        num_links,
-        2,
-        3,
-    )
-
-    return torch.mean(
-        paired_positions,
-        dim=2,
-    )
-
-def capture_center_position(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg,
-) -> torch.Tensor:
-    """Centroid of the selected capture-link midpoints."""
-
-    link_midpoints = capture_link_midpoints(
-        env,
-        asset_cfg,
-    )
-
-    return torch.mean(
-        link_midpoints,
-        dim=1,
-    )
-
-def capture_center_to_egg(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg,
-) -> torch.Tensor:
-    """Vector from the distal capture centre to the egg COM."""
-    return egg_position(env) - capture_center_position(env, asset_cfg)
-
-
-def capture_center_reward(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg,
-    std: float = 0.04,
-) -> torch.Tensor:
-    """Reward positioning the egg near the centre of the distal spiral."""
-    delta = capture_center_to_egg(env, asset_cfg)
-
-    distance_squared = torch.sum(delta * delta, dim=-1)
-
-    return torch.exp(
-        -distance_squared / (std * std)
-    )
