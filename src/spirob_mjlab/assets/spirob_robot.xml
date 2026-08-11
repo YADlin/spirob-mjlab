@@ -69,7 +69,7 @@
       <body name="link_001" pos="0.0 0.0 0.22628" quat="0.0 0.0 -1.0 0.0">
         <joint name="j_001" type="hinge" axis="0 1 0" range="-0.001 0.001" damping="500" stiffness="5000"/>
         <geom name="gmesh_001" class="visual" mesh="link_001" group="1"/>
-        <geom name="gcol_001" type="box" mesh="link_001" group="4" fitscale="1.0"/>
+        <geom name="gcol_001" type="capsule" mesh="link_001" group="4" fitscale="1.0"/>
         <site name="c0_001_s1" pos="-0.014043787134233146 0.0 0.003887071611887226"/>
         <site name="c0_001_s2" pos="-0.013762963380968076 0.0 0.008989865749906121"/>
         <site name="c1_001_s1" pos="0.014043787134233132 -1.7198678961845392e-18 0.0038870716118872286"/>
@@ -79,7 +79,7 @@
           <joint name="j_002" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.009151416593531596" stiffness="0.18302833187063192" />
           <!-- <joint name="j_002" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.009151416593531596" stiffness="0.2287854148382899" /> -->
           <geom name="gmesh_002" class="visual" mesh="link_002" group="1" />
-          <geom name="gcol_002" type="box" mesh="link_002" group="4" fitscale="1.0"/>
+          <geom name="gcol_002" type="capsule" mesh="link_002" group="4" fitscale="1.0"/>
           <site name="c0_002_s1" pos="-0.012813076370858354 0.0 0.0060753376579252534" />
           <site name="c0_002_s2" pos="-0.012165259019073867 0.0 0.017846701535654565" />
           <site name="c1_002_s1" pos="0.012813076370858337 -1.5691492964802256e-18 0.006075337657925259" />
@@ -89,7 +89,7 @@
             <joint name="j_003" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.008374842566836545" stiffness="0.1674968513367309" />
             <!-- <joint name="j_003" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.008374842566836545" stiffness="0.2093710641709136" /> -->
             <geom name="gmesh_003" class="visual" mesh="link_003" group="1" />
-            <geom name="gcol_003" type="box" mesh="link_003" group="4" fitscale="1.0"/>
+            <geom name="gcol_003" type="capsule" mesh="link_003" group="4" fitscale="1.0"/>
             <site name="c0_003_s1" pos="-0.011797748755937759 0.0 0.005644371041508834" />
             <site name="c0_003_s2" pos="-0.0111958856651136 0.0 0.016580708926176885" />
             <site name="c1_003_s1" pos="0.011797748755937735 -1.4448075251103829e-18 0.005644371041508832" />
@@ -99,7 +99,7 @@
               <joint name="j_004" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.007664167323436269" stiffness="0.15328334646872538" />
               <!-- <joint name="j_004" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.007664167323436269" stiffness="0.1916041830859067" /> -->
               <geom name="gmesh_004" class="visual" mesh="link_004" group="1" />
-              <geom name="gcol_004" type="box" mesh="link_004" group="4" fitscale="1.0"/>
+              <geom name="gcol_004" type="capsule" mesh="link_004" group="4" fitscale="1.0"/>
               <site name="c0_004_s1" pos="-0.010854445501043577 0.0 0.0052439759315539925" />
               <site name="c0_004_s2" pos="-0.010295276810827758 0.0 0.015404522115493542" />
               <site name="c1_004_s1" pos="0.010854445501043563 -1.3292861939372396e-18 0.005243975931553977" />
@@ -109,7 +109,7 @@
                 <joint name="j_005" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.00701379880192973" stiffness="0.1402759760385946" />
                 <!-- <joint name="j_005" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.00701379880192973" stiffness="0.17534497004824323" /> -->
                 <geom name="gmesh_005" class="visual" mesh="link_005" group="1" />
-                <geom name="gcol_005" type="box" mesh="link_005" group="4" fitscale="1.0"/>
+                <geom name="gcol_005" type="capsule" mesh="link_005" group="4" fitscale="1.0"/>
                 <site name="c0_005_s1" pos="-0.009978057409537241 0.0 0.004871983675149487" />
                 <site name="c0_005_s2" pos="-0.009458554504500285 0.0 0.01431177054390545" />
                 <site name="c1_005_s1" pos="0.009978057409537241 -1.2219596068298313e-18 0.004871983675149489" />
@@ -119,7 +119,7 @@
                   <joint name="j_006" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.006418619473967176" stiffness="0.1283723894793435" />
                   <!-- <joint name="j_006" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.006418619473967176" stiffness="0.16046548684917938" /> -->
                   <geom name="gmesh_006" class="visual" mesh="link_006" group="1" />
-                  <geom name="gcol_006" type="box" mesh="link_006" group="4" fitscale="1.0"/>
+                  <geom name="gcol_006" type="capsule" mesh="link_006" group="4" fitscale="1.0"/>
                   <site name="c0_006_s1" pos="-0.009163837716189213 0.0 0.004526379457254508" />
                   <site name="c0_006_s2" pos="-0.008681186821988264 0.0 0.01329653556051505" />
                   <site name="c1_006_s1" pos="0.009163837716189213 -1.122246452703691e-18 0.00452637945725451" />
@@ -129,7 +129,7 @@
                     <joint name="j_007" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.005873946076162826" stiffness="0.11747892152325652" />
                     <!-- <joint name="j_007" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.005873946076162826" stiffness="0.14684865190407065" /> -->
                     <geom name="gmesh_007" class="visual" mesh="link_007" group="1" />
-                    <geom name="gcol_007" type="box" mesh="link_007" group="4" fitscale="1.0"/>
+                    <geom name="gcol_007" type="capsule" mesh="link_007" group="4" fitscale="1.0"/>
                     <site name="c0_007_s1" pos="-0.008407376377358998 0.0 0.004205291387891803" />
                     <site name="c0_007_s2" pos="-0.007958963320541919 0.0 0.012353318366142216" />
                     <site name="c1_007_s1" pos="0.008407376377358994 -1.0296066569759764e-18 0.004205291387891801" />
@@ -139,7 +139,7 @@
                       <joint name="j_008" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.005375492759090629" stiffness="0.10750985518181258" />
                       <!-- <joint name="j_008" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.005375492759090629" stiffness="0.13438731897726572" /> -->
                       <geom name="gmesh_008" class="visual" mesh="link_008" group="1" />
-                      <geom name="gcol_008" type="box" mesh="link_008" group="4" fitscale="1.0"/>
+                      <geom name="gcol_008" type="capsule" mesh="link_008" group="4" fitscale="1.0"/>
                       <site name="c0_008_s1" pos="-0.007704576184954142 0.0 0.003906980363463291" />
                       <site name="c0_008_s2" pos="-0.007287972233858338 0.0 0.011477010230276556" />
                       <site name="c1_008_s1" pos="0.007704576184954142 -9.435384563691016e-19 0.0039069803634632925" />
@@ -149,7 +149,7 @@
                         <joint name="j_009" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.004919337363395092" stiffness="0.09838674726790185" />
                         <!-- <joint name="j_009" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.004919337363395092" stiffness="0.12298343408487732" /> -->
                         <geom name="gmesh_009" class="visual" mesh="link_009" group="1" />
-                        <geom name="gcol_009" type="box" mesh="link_009" group="4" fitscale="1.0"/>
+                        <geom name="gcol_009" type="capsule" mesh="link_009" group="4" fitscale="1.0"/>
                         <site name="c0_009_s1" pos="-0.007051630574795008 0.0 0.003629830647274136" />
                         <site name="c0_009_s2" pos="-0.006664579284851341 0.0 0.010662864820750751" />
                         <site name="c1_009_s1" pos="0.007051630574795005 -8.635756812192315e-19 0.0036298306472741394" />
@@ -159,7 +159,7 @@
                           <joint name="j_010" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.004501890557655382" stiffness="0.09003781115310765" />
                           <!-- <joint name="j_010" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.004501890557655382" stiffness="0.11254726394138456" /> -->
                           <geom name="gmesh_010" class="visual" mesh="link_010" group="1" />
-                          <geom name="gcol_010" type="box" mesh="link_010" group="4" fitscale="1.0"/>
+                          <geom name="gcol_010" type="capsule" mesh="link_010" group="4" fitscale="1.0"/>
                           <site name="c0_010_s1" pos="-0.0064450030091888644 0.0 0.003372341118246971" />
                           <site name="c0_010_s2" pos="-0.006085408001381061 0.0 0.009906472496266557" />
                           <site name="c1_010_s1" pos="0.006445003009188854 -7.892852305698194e-19 0.0033723411182469665" />
@@ -169,7 +169,7 @@
                             <joint name="j_011" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.004119867595159067" stiffness="0.08239735190318134" />
                             <!-- <joint name="j_011" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.004119867595159067" stiffness="0.10299668987897667" /> -->
                             <geom name="gmesh_011" class="visual" mesh="link_011" group="1" />
-                            <geom name="gcol_011" type="box" mesh="link_011" group="4" fitscale="1.0"/>
+                            <geom name="gcol_011" type="capsule" mesh="link_011" group="4" fitscale="1.0"/>
                             <site name="c0_011_s1" pos="-0.005881407822043716 0.0 0.003133117140426245" />
                             <site name="c0_011_s2" pos="-0.0055473214283280016 0.0 0.009203736422532638" />
                             <site name="c1_011_s1" pos="0.005881407822043713 -7.20264726374604e-19 0.003133117140426245" />
@@ -179,7 +179,7 @@
                               <joint name="j_012" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.0037702624673491797" stiffness="0.0754052493469836" />
                               <!-- <joint name="j_012" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.0037702624673491797" stiffness="0.0942565616837295" /> -->
                               <geom name="gmesh_012" class="visual" mesh="link_012" group="1" />
-                              <geom name="gcol_012" type="box" mesh="link_012" group="4" fitscale="1.0"/>
+                              <geom name="gcol_012" type="capsule" mesh="link_012" group="4" fitscale="1.0"/>
                               <site name="c0_012_s1" pos="-0.005357792422773514 0.0 0.0029108630092366246" />
                               <site name="c0_012_s2" pos="-0.005047405136958841 0.0 0.008550850382654157" />
                               <site name="c1_012_s1" pos="0.005357792422773511 -6.561403341045524e-19 0.0029108630092366254" />
@@ -189,7 +189,7 @@
                                 <joint name="j_013" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.0034503242505668657" stiffness="0.06900648501133731" />
                                 <!-- <joint name="j_013" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.0034503242505668657" stiffness="0.08625810626417164" /> -->
                                 <geom name="gmesh_013" class="visual" mesh="link_013" group="1" />
-                                <geom name="gcol_013" type="box" mesh="link_013" group="4" fitscale="1.0"/>
+                                <geom name="gcol_013" type="capsule" mesh="link_013" group="4" fitscale="1.0"/>
                                 <site name="c0_013_s1" pos="-0.004871320762606051 0.0 0.0027043749335811103" />
                                 <site name="c0_013_s2" pos="-0.004582951439557895 0.0 0.007944278161587853" />
                                 <site name="c1_013_s1" pos="0.004871320762606046 -5.96564737954554e-19 0.002704374933581111" />
@@ -199,7 +199,7 @@
                                   <joint name="j_014" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.003157535459970208" stiffness="0.06315070919940417" />
                                   <!-- <joint name="j_014" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.003157535459970208" stiffness="0.07893838649925522" /> -->
                                   <geom name="gmesh_014" class="visual" mesh="link_014" group="1" />
-                                  <geom name="gcol_014" type="box" mesh="link_014" group="4" fitscale="1.0"/>
+                                  <geom name="gcol_014" type="capsule" mesh="link_014" group="4" fitscale="1.0"/>
                                   <site name="c0_014_s1" pos="-0.0044193579737424465 0.0 0.0025125345157688836" />
                                   <site name="c0_014_s2" pos="-0.00415144472382633 0.0 0.007380734393003408" />
                                   <site name="c1_014_s1" pos="0.004419357973742441 -5.412152596830016e-19 0.002512534515768882" />
@@ -209,7 +209,7 @@
                                     <joint name="j_015" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.002880" stiffness="0.0576" />
                                     <!-- <joint name="j_015" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.002880" stiffness="0.072" /> -->
                                     <geom name="gmesh_015" class="visual" mesh="link_015" group="1" />
-                                    <geom name="gcol_015" type="box" mesh="link_015" group="4" fitscale="1.0"/>
+                                    <geom name="gcol_015" type="capsule" mesh="link_015" group="4" fitscale="1.0"/>
                                     <site name="c0_015_s1" pos="-0.003990 0.0 0.002320" />
                                     <site name="c0_015_s2" pos="-0.003750 0.0 0.006820" />
                                     <site name="c1_015_s1" pos=" 0.003990 0.0 0.002320" />
@@ -219,7 +219,7 @@
                                       <joint name="j_016" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.002630" stiffness="0.0526" />
                                       <!-- <joint name="j_016" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.002630" stiffness="0.06575" /> -->
                                       <geom name="gmesh_016" class="visual" mesh="link_016" group="1" />
-                                      <geom name="gcol_016" type="box" mesh="link_016" group="4" fitscale="1.0"/>
+                                      <geom name="gcol_016" type="capsule" mesh="link_016" group="4" fitscale="1.0"/>
                                       <site name="c0_016_s1" pos="-0.003580 0.0 0.002120" />
                                       <site name="c0_016_s2" pos="-0.003370 0.0 0.006230" />
                                       <site name="c1_016_s1" pos=" 0.003580 0.0 0.002120" />
@@ -229,7 +229,7 @@
                                         <joint name="j_017" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.002400" stiffness="0.0480" />
                                         <!-- <joint name="j_017" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.002400" stiffness="0.06575" /> -->
                                         <geom name="gmesh_017" class="visual" mesh="link_017" group="1" />
-                                        <geom name="gcol_017" type="box" mesh="link_017" group="4" fitscale="1.0"/>
+                                        <geom name="gcol_017" type="capsule" mesh="link_017" group="4" fitscale="1.0"/>
                                         <site name="c0_017_s1" pos="-0.003190 0.0 0.001930" />
                                         <site name="c0_017_s2" pos="-0.003010 0.0 0.005670" />
                                         <site name="c1_017_s1" pos=" 0.003190 0.0 0.001930" />
@@ -239,7 +239,7 @@
                                           <joint name="j_018" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.002190" stiffness="0.0438" />
                                           <!-- <joint name="j_018" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.002190" stiffness="0.05475" /> -->
                                           <geom name="gmesh_018" class="visual" mesh="link_018" group="1" />
-                                          <geom name="gcol_018" type="box" mesh="link_018" group="4" fitscale="1.0"/>
+                                          <geom name="gcol_018" type="capsule" mesh="link_018" group="4" fitscale="1.0"/>
                                           <site name="c0_018_s1" pos="-0.002830 0.0 0.001750" />
                                           <site name="c0_018_s2" pos="-0.002660 0.0 0.005140" />
                                           <site name="c1_018_s1" pos=" 0.002830 0.0 0.001750" />
@@ -249,7 +249,7 @@
                                             <joint name="j_019" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.001995" stiffness="0.0399" />
                                             <!-- <joint name="j_019" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.001995" stiffness="0.049874999999999996" /> -->
                                             <geom name="gmesh_019" class="visual" mesh="link_019" group="1" />
-                                            <geom name="gcol_019" type="box" mesh="link_019" group="4" fitscale="1.0"/>
+                                            <geom name="gcol_019" type="capsule" mesh="link_019" group="4" fitscale="1.0"/>
                                             <site name="c0_019_s1" pos="-0.002495 0.0 0.001580" />
                                             <site name="c0_019_s2" pos="-0.002345 0.0 0.004640" />
                                             <site name="c1_019_s1" pos=" 0.002495 0.0 0.001580" />
@@ -259,7 +259,7 @@
                                               <joint name="j_020" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.001815" stiffness="0.0363" />
                                               <!-- <joint name="j_020" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.001815" stiffness="0.045375" /> -->
                                               <geom name="gmesh_020" class="visual" mesh="link_020" group="1" />
-                                              <geom name="gcol_020" type="box" mesh="link_020" group="4" fitscale="1.0"/>
+                                              <geom name="gcol_020" type="capsule" mesh="link_020" group="4" fitscale="1.0"/>
                                               <site name="c0_020_s1" pos="-0.002180 0.0 0.001420" />
                                               <site name="c0_020_s2" pos="-0.002050 0.0 0.004170" />
                                               <site name="c1_020_s1" pos=" 0.002180 0.0 0.001420" />
@@ -269,7 +269,7 @@
                                                 <joint name="j_021" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.001650" stiffness="0.0330" />
                                                 <!-- <joint name="j_021" type="hinge" axis="0 1 0" range="-0.5235987755982988 0.5235987755982988" damping="0.001650" stiffness="0.04125" /> -->
                                                 <geom name="gmesh_021" class="visual" mesh="link_021" group="1" />
-                                                <geom name="gcol_021" type="box" mesh="link_021" group="4" fitscale="1.0"/>
+                                                <geom name="gcol_021" type="capsule" mesh="link_021" group="4" fitscale="1.0"/>
                                                 <site name="c0_021_s1" pos="-0.0020366374998512537 0.0 0.001501163441636032" />
                                                 <site name="c0_021_s2" pos="-0.0018765674296572562 0.0 0.004409765745968962" />
                                                 <site name="c1_021_s1" pos="0.0020366374998512563 -2.494161595216308e-19 0.0015011634416360342" />
