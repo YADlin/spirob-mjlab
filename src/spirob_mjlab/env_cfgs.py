@@ -382,7 +382,7 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
             num_envs=1 if play else 64,
             env_spacing=0.70,
         ),
-        observations=_common_observations(include_touch=True),
+        observations=_common_observations(include_touch=True, include_capture=True),
         actions=_stage1_rate_limited_actions(),
         rewards=rewards,
         terminations=terminations,
