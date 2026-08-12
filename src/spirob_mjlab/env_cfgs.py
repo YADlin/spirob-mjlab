@@ -165,8 +165,7 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
         insufficient and we should add reach/contact shaping in Stage 2.
     """
     bucket_site_cfg = _bucket_site_cfg()
-    robot_tendon_cfg = _robot_tendon_cfg()
-
+    
     rewards = {
         "egg_delta_progress": RewardTermCfg(
             func=mdp.egg_to_bucket_delta_progress,
