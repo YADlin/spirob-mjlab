@@ -168,15 +168,6 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
     robot_tendon_cfg = _robot_tendon_cfg()
 
     rewards = {
-        "egg_to_bucket_distance": RewardTermCfg(
-            func=mdp.egg_to_bucket_distance_reward,
-            weight=1.00,
-            params={
-                "asset_cfg": bucket_site_cfg, 
-                "distance_scale": 0.10
-            },
-        ),
-
         "egg_delta_progress": RewardTermCfg(
             func=mdp.egg_to_bucket_delta_progress,
             weight=1.0,

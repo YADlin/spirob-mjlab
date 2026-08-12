@@ -56,24 +56,6 @@ def touch_values(env: "ManagerBasedRlEnv", n_sensors: int = 42, threshold: float
 def last_action(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return env.action_manager.action
 
-
-
-def egg_to_bucket_distance(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg = BUCKET_CFG,
-) -> torch.Tensor:
-    """3D distance from egg root/COM to bucket target site."""
-    return torch.linalg.norm(egg_to_bucket(env, asset_cfg), dim=-1)
-
-def egg_to_bucket_distance_reward(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg = BUCKET_CFG,
-    distance_scale: float = 0.10,
-) -> torch.Tensor:
-    """Negative absolute egg-to-bucket distance used by the current baseline."""
-    distance = egg_to_bucket_distance(env, asset_cfg)
-    return -distance / distance_scale
-
 def egg_inside_bucket(
     env: "ManagerBasedRlEnv",
     asset_cfg: SceneEntityCfg = BUCKET_CFG,
