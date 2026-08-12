@@ -39,6 +39,20 @@ CABLE_ACTION_SCALE_FULL_RANGE = 0.5 * (CABLE_CTRL_RANGE[1] - CABLE_CTRL_RANGE[0]
 CABLE_MAX_DELTA_PER_CONTROL_STEP = 1e-3
 # metres/control-step; 0.03 m takes ~0.30 s at 100 Hz.
 
+SPIROB_NUM_ELEMENTS = 21
+
+SPIROB_ELEMENT_BODY_NAMES = tuple(
+    f"link_{i:03d}"
+    for i in range(1, SPIROB_NUM_ELEMENTS + 1)
+)
+
+
+def _robot_shape_cfg() -> SceneEntityCfg:
+    return SceneEntityCfg(
+        "robot",
+        body_names=SPIROB_ELEMENT_BODY_NAMES,
+        preserve_order=True,
+    )
 
 def _robot_tendon_cfg() -> SceneEntityCfg:
     return SceneEntityCfg(
@@ -61,6 +75,7 @@ def _common_scene_entities(*, drop_task: bool = False):
 def _common_observations(*, include_touch: bool = True,):
     robot_tendon_cfg = _robot_tendon_cfg()
     bucket_site_cfg = _bucket_site_cfg()
+    robot_shape_cfg = _robot_shape_cfg()
 
     actor_terms = {
         "tendon_len": ObservationTermCfg(
@@ -75,7 +90,13 @@ def _common_observations(*, include_touch: bool = True,):
             func=mdp.egg_to_bucket,
             params={"asset_cfg": bucket_site_cfg},
         ),
-        "last_action": ObservationTermCfg(func=mdp.last_action),
+        "last_action": ObservationTermCfg(
+            func=mdp.last_action
+        ),
+        "robot_keypoints_xy": ObservationTermCfg(
+            func=mdp.robot_keypoints_xy,
+            params={"asset_cfg": robot_shape_cfg},
+        ),
     }
     if include_touch:
         actor_terms["touch"] = ObservationTermCfg(

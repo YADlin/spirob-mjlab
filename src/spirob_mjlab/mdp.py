@@ -205,3 +205,30 @@ def egg_to_bucket_delta_progress(
         max=1.0,
     ) / env.step_dt
 
+def robot_keypoints_xy(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+    """XY positions of SpiRob link/joint keypoints in the local environment frame.
+
+    This represents the visible shape of the robot and can later be
+    estimated from a top-view camera.
+    """
+
+    robot: Entity = env.scene[asset_cfg.name]
+
+    # [num_envs, num_links, 2]
+    keypoints_w = robot.data.body_link_pos_w[
+        :,
+        asset_cfg.body_ids,
+        :2,
+    ]
+
+    # Convert world coordinates to each parallel environment's local frame.
+    keypoints_local = (
+        keypoints_w
+        - env.scene.env_origins[:, None, :2]
+    )
+
+    # [num_envs, num_links * 2]
+    return keypoints_local.flatten(start_dim=1)
