@@ -1,8 +1,6 @@
-"""SpiRob MDP terms for mjlab.
+"""MDP terms for the SpiRob egg-to-bucket task.
 
-The functions are vectorized over all mjlab environments. Stage 1 manipulation
-uses the smallest meaningful reward: reduce egg-to-bucket distance, with a
-sparse terminal bonus when the egg is actually inside the bucket.
+All terms are vectorized over parallel mjlab environments.
 """
 
 from __future__ import annotations
@@ -59,11 +57,6 @@ def last_action(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return env.action_manager.action
 
 
-def action_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
-    """Positive L2 action cost; give it a negative RewardTermCfg weight."""
-    a = env.action_manager.action
-    return torch.sum(a * a, dim=-1)
-
 
 def egg_to_bucket_distance(
     env: "ManagerBasedRlEnv",
@@ -72,24 +65,14 @@ def egg_to_bucket_distance(
     """3D distance from egg root/COM to bucket target site."""
     return torch.linalg.norm(egg_to_bucket(env, asset_cfg), dim=-1)
 
-
-def egg_to_bucket_xy_distance(
+def egg_to_bucket_distance_reward(
     env: "ManagerBasedRlEnv",
     asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    distance_scale: float = 0.10,
 ) -> torch.Tensor:
-    """XY distance from egg root/COM to bucket target site."""
-    return torch.linalg.norm(egg_to_bucket(env, asset_cfg)[:, :2], dim=-1)
-
-
-def egg_to_bucket_smooth_reward(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg = BUCKET_CFG,
-    std: float = 0.08,
-) -> torch.Tensor:
-    """Optional bounded version of the distance reward, useful for diagnostics."""
-    d = egg_to_bucket(env, asset_cfg)
-    return torch.exp(-torch.sum(d * d, dim=-1) / (std * std))
-
+    """Negative absolute egg-to-bucket distance used by the current baseline."""
+    distance = egg_to_bucket_distance(env, asset_cfg)
+    return -distance / distance_scale
 
 def egg_inside_bucket(
     env: "ManagerBasedRlEnv",
@@ -124,22 +107,6 @@ def egg_inside_bucket_terminal_indicator(
         max_z_offset=max_z_offset,
     )
     return success.to(dtype=torch.float32) / env.step_dt
-
-def egg_inside_bucket_reward(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg = BUCKET_CFG,
-    com_distance_threshold: float = 0.015,
-    min_z_offset: float = -0.010,
-    max_z_offset: float = 0.020,
-) -> torch.Tensor:
-    """Float version of egg_inside_bucket for RewardTermCfg."""
-    return egg_inside_bucket(
-        env,
-        asset_cfg=asset_cfg,
-        com_distance_threshold=com_distance_threshold,
-        min_z_offset=min_z_offset,
-        max_z_offset=max_z_offset,
-    ).float()
 
 def egg_fell(env: "ManagerBasedRlEnv", min_z: float = 0.03) -> torch.Tensor:
     """Safety termination if the egg falls below the useful workspace."""

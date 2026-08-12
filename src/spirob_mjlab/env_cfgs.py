@@ -1,12 +1,10 @@
-"""mjlab environment configs for SpiRob.
+"""Environment configuration for deterministic SpiRob egg-to-bucket manipulation.
 
-This file keeps the earlier confidence tasks and adds a first deterministic
-manipulation task:
-
+Active task:
     Mjlab-SpiRob-EggToBucket-Stage1
 
-Stage 1 uses only a minimal object-level reward: reduce egg-to-bucket distance.
-No randomization is used here.
+The egg starts at a fixed position on the pedestal and the bucket is fixed.
+No spawn or domain randomization is applied in this configuration.
 """
 
 from __future__ import annotations
@@ -14,7 +12,6 @@ from dataclasses import dataclass
 
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp import time_out
-from mjlab.envs.mdp.actions import TendonLengthActionCfg
 from spirob_mjlab.actions import RateLimitedTendonLengthActionCfg
 from mjlab.managers.action_manager import ActionTermCfg
 from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
@@ -33,7 +30,6 @@ from spirob_mjlab.entities import (
     CABLE_REST,
     bucket_cfg,
     egg_cfg,
-    egg_drop_cfg,
     pedestal_cfg,
     spirob_robot_cfg,
 )
@@ -51,10 +47,8 @@ def _robot_tendon_cfg() -> SceneEntityCfg:
         preserve_order=True,
     )
 
-
 def _bucket_site_cfg() -> SceneEntityCfg:
     return SceneEntityCfg("bucket", site_names=("bucket_site",))
-
 
 def _common_scene_entities(*, drop_task: bool = False):
     return {
@@ -63,7 +57,6 @@ def _common_scene_entities(*, drop_task: bool = False):
         "egg": egg_cfg(),
         "bucket": bucket_cfg(),
     }
-
 
 def _common_observations(*, include_touch: bool = True,):
     robot_tendon_cfg = _robot_tendon_cfg()
@@ -76,10 +69,6 @@ def _common_observations(*, include_touch: bool = True,):
         ),
         "tendon_vel": ObservationTermCfg(
             func=mdp.tendon_velocity,
-            params={"asset_cfg": robot_tendon_cfg},
-        ),
-        "tip_to_egg": ObservationTermCfg(
-            func=mdp.tip_to_egg,
             params={"asset_cfg": robot_tendon_cfg},
         ),
         "egg_to_bucket": ObservationTermCfg(
@@ -98,22 +87,6 @@ def _common_observations(*, include_touch: bool = True,):
         "actor": ObservationGroupCfg(actor_terms, enable_corruption=False),
         "critic": ObservationGroupCfg({**actor_terms}, enable_corruption=False),
     }
-
-
-def _common_actions() -> dict[str, ActionTermCfg]:
-    # Raw policy action is converted to desired tendon length.
-    # With scale=0.045 and offset=0.22, nominal [-1,1] maps to [0.175,0.265].
-    return {
-        "cable_len": TendonLengthActionCfg(
-            entity_name="robot",
-            actuator_names=CABLE_NAMES,
-            scale=0.045,
-            offset=CABLE_REST,
-            preserve_order=True,
-            clip={name: CABLE_CTRL_RANGE for name in CABLE_NAMES},
-        ),
-    }
-
 
 def _stage1_rate_limited_actions() -> dict[str, ActionTermCfg]:
     """Full-range tendon targets with slow command dynamics for Stage 1.
@@ -134,7 +107,6 @@ def _stage1_rate_limited_actions() -> dict[str, ActionTermCfg]:
         ),
     }
 
-
 def _common_viewer_cfg() -> ViewerConfig:
     return ViewerConfig(
         origin_type=ViewerConfig.OriginType.ASSET_BODY,
@@ -144,7 +116,6 @@ def _common_viewer_cfg() -> ViewerConfig:
         elevation=-20.0,
         azimuth=120.0,
     )
-
 
 def _common_sim_cfg() -> SimulationCfg:
     return SimulationCfg(
@@ -193,15 +164,6 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
                 "progress_scale": 0.005,
             },
         ),
-
-        "reach_egg": RewardTermCfg(
-            func=mdp.reach_reward,
-            weight=0.25,
-            params={
-                "asset_cfg": robot_tendon_cfg, 
-                "std": 0.06
-            },
-        ),
     
         "inside_bucket": RewardTermCfg(
             func=mdp.egg_inside_bucket_terminal_indicator,
@@ -217,9 +179,6 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
             func=mdp.egg_fell_terminal_indicator,
             weight=-10.0,
         ),
-
-        # Keep this tiny. Too much action penalty encourages doing nothing.
-        "action_l2": RewardTermCfg(func=mdp.action_l2, weight=-0.0005),
     }
 
     terminations = {
