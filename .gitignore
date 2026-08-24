@@ -14,3 +14,5 @@ checkpoints/
 *.pth
 *.onnx
 .DS_Store
+wandb_*.zip
+wandb_*/

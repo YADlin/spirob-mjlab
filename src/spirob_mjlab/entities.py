@@ -1,8 +1,7 @@
-"""Entity definitions for the minimal SpiRob mjlab task.
+"""Entity definitions for SpiRob mjlab tasks.
 
-Each detached physical object is its own EntityCfg. This is important because
-mjlab Entity supports at most one free joint per entity. The robot is fixed-base
-and articulated; the egg is free; the pedestal and bucket are fixed props.
+Each detached physical object is its own EntityCfg. The robot is fixed-base and
+articulated; the egg is free; the pedestal and bucket are fixed props.
 """
 
 from __future__ import annotations
@@ -83,8 +82,9 @@ def egg_cfg() -> EntityCfg:
     )
 
 
+
 def pedestal_cfg() -> EntityCfg:
-    """Fixed pedestal under the egg."""
+    """Fixed pedestal under the default egg start pose."""
     return EntityCfg(
         spec_fn=pedestal_spec,
         init_state=EntityCfg.InitialStateCfg(pos=(0.05, 0.15, 0.002)),
@@ -92,7 +92,7 @@ def pedestal_cfg() -> EntityCfg:
 
 
 def bucket_cfg() -> EntityCfg:
-    """Fixed bucket/drop target. Included now even though the first reward is reach/contact."""
+    """Fixed bucket/drop target."""
     return EntityCfg(
         spec_fn=bucket_spec,
         init_state=EntityCfg.InitialStateCfg(pos=(-0.05, 0.15, 0.0)),

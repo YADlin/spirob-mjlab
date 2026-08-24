@@ -1,8 +1,6 @@
-"""Minimal SpiRob MDP terms for mjlab.
+"""MDP terms for the SpiRob egg-to-bucket task.
 
-The terms are intentionally simple and vectorized over all mjlab environments.
-They are the mjlab equivalent of the user's first Gym proof-of-concept:
-  tendon state + touch sensors + tip-to-egg vector -> reach/contact reward.
+All terms are vectorized over parallel mjlab environments.
 """
 
 from __future__ import annotations
@@ -35,11 +33,6 @@ def tendon_velocity(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = ROBOT_
     return robot.data.tendon_vel[:, asset_cfg.tendon_ids]
 
 
-def tip_position(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = ROBOT_CFG) -> torch.Tensor:
-    robot: Entity = env.scene[asset_cfg.name]
-    return robot.data.site_pos_w[:, asset_cfg.site_ids].squeeze(1)
-
-
 def egg_position(env: "ManagerBasedRlEnv", object_name: str = "egg") -> torch.Tensor:
     obj: Entity = env.scene[object_name]
     return obj.data.root_link_pos_w
@@ -50,19 +43,12 @@ def bucket_position(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = BUCKET
     return bucket.data.site_pos_w[:, asset_cfg.site_ids].squeeze(1)
 
 
-def tip_to_egg(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = ROBOT_CFG) -> torch.Tensor:
-    return egg_position(env) - tip_position(env, asset_cfg)
-
-
 def egg_to_bucket(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = BUCKET_CFG) -> torch.Tensor:
     return bucket_position(env, asset_cfg) - egg_position(env)
 
 
-def touch_values(env: "ManagerBasedRlEnv", n_sensors: int = 20, threshold: float = 1.0e-4) -> torch.Tensor:
-    """Binary robot touch sensors from MuJoCo sensordata.
-
-    The robot XML contributes 20 <touch> sensors. This returns [num_envs, 20].
-    """
+def touch_values(env: "ManagerBasedRlEnv", n_sensors: int = 42, threshold: float = 1.0e-4) -> torch.Tensor:
+    """Binary robot touch sensors from MuJoCo sensordata."""
     raw = env.sim.data.sensordata[:, :n_sensors]
     return (raw > threshold).float()
 
@@ -70,49 +56,161 @@ def touch_values(env: "ManagerBasedRlEnv", n_sensors: int = 20, threshold: float
 def last_action(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return env.action_manager.action
 
-
-def reach_reward(
+def egg_inside_bucket(
     env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg = ROBOT_CFG,
-    std: float = 0.06,
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    com_distance_threshold: float = 0.015,
+    min_z_offset: float = -0.010,
+    max_z_offset: float = 0.020,
 ) -> torch.Tensor:
-    """Smooth reach reward, 1 near the egg and ~0 far away."""
-    d = tip_to_egg(env, asset_cfg)
-    return torch.exp(-torch.sum(d * d, dim=-1) / (std * std))
+    """Strict bucket success detector.
 
+    Success requires the egg root/COM to be close to bucket_site and vertically
+    inside the bucket interior, not merely near the rim.
+    """
+    egg = egg_position(env)
+    bucket = bucket_position(env, asset_cfg)
+    delta = egg - bucket
+    com_close = torch.linalg.norm(delta, dim=-1) < com_distance_threshold
+    z_inside = (delta[:, 2] > min_z_offset) & (delta[:, 2] < max_z_offset)
+    return com_close & z_inside
 
-def contact_reward(
+def egg_inside_bucket_terminal_indicator(
     env: "ManagerBasedRlEnv",
-    n_sensors: int = 20,
-    threshold: float = 1.0e-4,
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    com_distance_threshold: float = 0.015,
+    max_z_offset: float = 0.02,
 ) -> torch.Tensor:
-    """Small reward proportional to the number of active touch sensors."""
-    return touch_values(env, n_sensors=n_sensors, threshold=threshold).mean(dim=-1)
-
-
-def action_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
-    """Positive L2 action cost; give it a negative RewardTermCfg weight."""
-    a = env.action_manager.action
-    return torch.sum(a * a, dim=-1)
-
-
-def reached_egg(
-    env: "ManagerBasedRlEnv",
-    asset_cfg: SceneEntityCfg = ROBOT_CFG,
-    distance_threshold: float = 0.012,
-    n_sensors: int = 20,
-    touch_threshold: float = 1.0e-4,
-) -> torch.Tensor:
-    """Terminate as success when close enough or when any touch sensor fires."""
-    d = torch.linalg.norm(tip_to_egg(env, asset_cfg), dim=-1)
-    touched = touch_values(env, n_sensors=n_sensors, threshold=touch_threshold).sum(dim=-1) > 0
-    return (d < distance_threshold) | touched
-
+    """Return a one-shot successful-placement indicator."""
+    success = egg_inside_bucket(
+        env,
+        asset_cfg=asset_cfg,
+        com_distance_threshold=com_distance_threshold,
+        max_z_offset=max_z_offset,
+    )
+    return success.to(dtype=torch.float32) / env.step_dt
 
 def egg_fell(env: "ManagerBasedRlEnv", min_z: float = 0.03) -> torch.Tensor:
-    """Safety termination for early debugging."""
+    """Safety termination if the egg falls below the useful workspace."""
     return egg_position(env)[:, 2] < min_z
+
+def egg_fell_terminal_indicator(env: "ManagerBasedRlEnv",) -> torch.Tensor:
+    """Return a one-shot egg-fall indicator.
+
+    Reward terms are integrated over the control timestep. Dividing by
+    step_dt makes the configured weight behave as an actual terminal amount.
+    """
+    return egg_fell(env).to(dtype=torch.float32) / env.step_dt
+
+def _world_xy_to_env_local(
+    env: "ManagerBasedRlEnv",
+    position_w: torch.Tensor,
+) -> torch.Tensor:
+    """Convert batched world-frame XY positions to environment-local XY."""
+    return position_w[:, :2] - env.scene.env_origins[:, :2]
+
+def egg_out_of_bounds(env: "ManagerBasedRlEnv", xy_limit: float = 0.40) -> torch.Tensor:
+    """Terminate if the egg escapes the small manipulation workspace."""
+    egg_xy_local = _world_xy_to_env_local(env, egg_position(env),)
+    return torch.any(torch.abs(egg_xy_local) > xy_limit, dim=-1,)
 
 
 def nan_state(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return ~torch.isfinite(env.sim.data.qacc).all(dim=-1)
+
+
+def egg_to_bucket_delta_progress(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg = BUCKET_CFG,
+    progress_scale: float = 0.005,
+) -> torch.Tensor:
+    """Reward the signed step-to-step reduction in egg-to-bucket distance.
+
+    A net 5 mm movement toward the bucket gives approximately +1 total
+    reward across the corresponding control steps. Moving away produces
+    a negative reward. Holding the egg stationary produces zero.
+    """
+
+    egg_xy = (
+        egg_position(env)[:, :2]
+        - env.scene.env_origins[:, :2]
+    )
+
+    bucket_xy = (
+        bucket_position(env, asset_cfg)[:, :2]
+        - env.scene.env_origins[:, :2]
+    )
+
+    current_distance = torch.linalg.norm(
+        egg_xy - bucket_xy,
+        dim=-1,
+    )
+
+    buffer_name = "_stage1_previous_egg_bucket_distance"
+
+    previous_distance = getattr(env, buffer_name, None)
+
+    if (
+        previous_distance is None
+        or previous_distance.shape != current_distance.shape
+    ):
+        setattr(
+            env,
+            buffer_name,
+            current_distance.detach().clone(),
+        )
+        return torch.zeros_like(current_distance)
+
+    progress = previous_distance - current_distance
+
+    # Do not interpret a newly reset environment as object movement.
+    new_episode = env.episode_length_buf <= 1
+    progress = torch.where(
+        new_episode,
+        torch.zeros_like(progress),
+        progress,
+    )
+
+    setattr(
+        env,
+        buffer_name,
+        current_distance.detach().clone(),
+    )
+
+    # RewardManager multiplies terms by step_dt. Dividing here makes the
+    # final contribution equal to the intended normalized progress.
+    normalized_progress = progress / progress_scale
+
+    return torch.clamp(
+        normalized_progress,
+        min=-1.0,
+        max=1.0,
+    ) / env.step_dt
+
+def robot_keypoints_xy(
+    env: "ManagerBasedRlEnv",
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+    """XY positions of SpiRob link/joint keypoints in the local environment frame.
+
+    This represents the visible shape of the robot and can later be
+    estimated from a top-view camera.
+    """
+
+    robot: Entity = env.scene[asset_cfg.name]
+
+    # [num_envs, num_links, 2]
+    keypoints_w = robot.data.body_link_pos_w[
+        :,
+        asset_cfg.body_ids,
+        :2,
+    ]
+
+    # Convert world coordinates to each parallel environment's local frame.
+    keypoints_local = (
+        keypoints_w
+        - env.scene.env_origins[:, None, :2]
+    )
+
+    # [num_envs, num_links * 2]
+    return keypoints_local.flatten(start_dim=1)
