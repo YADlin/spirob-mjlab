@@ -8,7 +8,12 @@ version = "0.1.0"
 description = "Minimal mjlab task for SpiRob reach/contact confidence-building"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
-dependencies = ["mjlab>=1.5.0"]
+dependencies = [
+    "mjlab==1.4.0",
+    "mujoco==3.8.1",
+    "mujoco-warp==3.8.1",
+    "warp-lang==1.14.0",
+]
 
 [project.entry-points."mjlab.tasks"]
 spirob_mjlab = "spirob_mjlab"
