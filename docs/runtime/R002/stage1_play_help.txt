@@ -1,0 +1,35 @@
+usage: /home/yadu/Research_Work/spirob-mjlab/.venv/bin/play Mjlab-SpiRob-EggToBucket-Stage1 [-h] [OPTIONS]
+
+╭─ options ────────────────────────────────────────────────────────────────────╮
+│ -h, --help               show this help message and exit                     │
+│ --agent {zero,random,trained}                                                │
+│                          (default: trained)                                  │
+│ --registry-name {None}|STR                                                   │
+│                          (default: None)                                     │
+│ --wandb-run-path {None}|STR                                                  │
+│                          (default: None)                                     │
+│ --wandb-checkpoint-name {None}|STR                                           │
+│                          Optional checkpoint name within the W&B run to load │
+│                          (e.g. 'model_4000.pt'). (default: None)             │
+│ --checkpoint-file {None}|STR                                                 │
+│                          (default: None)                                     │
+│ --motion-file {None}|STR                                                     │
+│                          (default: None)                                     │
+│ --num-envs {None}|INT    (default: None)                                     │
+│ --device {None}|STR      (default: None)                                     │
+│ --video {True,False}     (default: False)                                    │
+│ --video-length INT       (default: 200)                                      │
+│ --video-height {None}|INT                                                    │
+│                          (default: None)                                     │
+│ --video-width {None}|INT                                                     │
+│                          (default: None)                                     │
+│ --camera {None}|INT|STR  (default: None)                                     │
+│ --viewer {auto,native,viser}                                                 │
+│                          (default: auto)                                     │
+│ --no-terminations {True,False}                                               │
+│                          Disable all termination conditions (useful for      │
+│                          viewing motions with dummy agents). (default:       │
+│                          False)                                              │
+│ --log-root STR           Root directory under which experiment logs are      │
+│                          written. (default: logs/rsl_rl)                     │
+╰──────────────────────────────────────────────────────────────────────────────╯
