@@ -5,7 +5,7 @@ build-backend = "uv_build"
 [project]
 name = "spirob-mjlab"
 version = "0.1.0"
-description = "Minimal mjlab task for SpiRob reach/contact confidence-building"
+description = "An mjlab task for 2-Cable SpiRob pick and place"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 dependencies = [
