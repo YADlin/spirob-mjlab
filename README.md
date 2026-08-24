@@ -494,6 +494,9 @@ randomization should be introduced only after that fixed-policy map exists.
 Base XY motion is not part of the present task and should not be added until
 the fixed-base reachable workspace has been measured.
 
+The executable evaluator, evidence schema, seed-repeat commands, and exit gate
+are specified in [the S1 protocol](docs/protocols/S1.md).
+
 ## References
 
 - [mjlab documentation](https://mujocolab.github.io/mjlab/)
