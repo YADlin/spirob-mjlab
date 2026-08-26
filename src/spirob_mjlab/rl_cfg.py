@@ -2,11 +2,70 @@
 
 from __future__ import annotations
 
-from mjlab.rl import RslRlModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
+from dataclasses import dataclass
+
+from mjlab.rl import (
+    MjlabOnPolicyRunner,
+    RslRlModelCfg,
+    RslRlOnPolicyRunnerCfg,
+    RslRlPpoAlgorithmCfg,
+)
 
 
-def spirob_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
-    return RslRlOnPolicyRunnerCfg(
+@dataclass
+class Stage2FineTuneRunnerCfg(RslRlOnPolicyRunnerCfg):
+    """S2 loader behavior exposed explicitly in the training CLI."""
+
+    initialize_from_stage1: bool = True
+    """Load network weights only; set False when resuming an interrupted S2 run."""
+
+
+class Stage2FineTuneRunner(MjlabOnPolicyRunner):
+    """Initialize S2 from R002 weights without resuming its optimizer state."""
+
+    def __init__(self, env, train_cfg: dict, *args, **kwargs) -> None:
+        train_cfg = dict(train_cfg)
+        self._initialize_from_stage1 = train_cfg.pop("initialize_from_stage1")
+        super().__init__(env, train_cfg, *args, **kwargs)
+
+    def load(
+        self,
+        path: str,
+        load_cfg: dict | None = None,
+        strict: bool = True,
+        map_location: str | None = None,
+    ) -> dict:
+        fine_tune = load_cfg is None and self._initialize_from_stage1
+        if fine_tune:
+            load_cfg = {
+                "actor": True,
+                "critic": True,
+                "optimizer": False,
+                "iteration": False,
+                "rnd": False,
+            }
+        infos = super().load(
+            path,
+            load_cfg=load_cfg,
+            strict=strict,
+            map_location=map_location,
+        )
+        if fine_tune:
+            self.current_learning_iteration = 0
+            self.env.unwrapped.common_step_counter = 0
+            print(
+                "[INFO]: Initialized S2 actor/critic from checkpoint; "
+                "optimizer and iteration state were reset."
+            )
+        return infos
+
+
+def spirob_ppo_runner_cfg(
+    *,
+    stage2: bool = False,
+) -> RslRlOnPolicyRunnerCfg:
+    runner_cfg_cls = Stage2FineTuneRunnerCfg if stage2 else RslRlOnPolicyRunnerCfg
+    return runner_cfg_cls(
         actor=RslRlModelCfg(
             hidden_dims=(128, 128),
             activation="elu",

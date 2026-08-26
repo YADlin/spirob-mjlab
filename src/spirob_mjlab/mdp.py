@@ -22,6 +22,270 @@ ROBOT_CFG = SceneEntityCfg(
 )
 BUCKET_CFG = SceneEntityCfg("bucket", site_names=("bucket_site",))
 
+_S2_SPAWN_OFFSET_BUFFER = "_stage2_spawn_offset_xy"
+_S2_SPAWN_NOMINAL_BUFFER = "_stage2_spawn_is_nominal"
+_S2_SPAWN_STRATUM_BUFFER = "_stage2_spawn_stratum"
+_S2_SPAWN_REJECTION_BUFFER = "_stage2_spawn_rejection_count"
+_S2_RESET_COUNT_BUFFER = "_stage2_reset_count"
+
+
+def _resolve_env_ids(
+    env: "ManagerBasedRlEnv",
+    env_ids: torch.Tensor | None,
+) -> torch.Tensor:
+    if env_ids is None:
+        return torch.arange(env.num_envs, device=env.device, dtype=torch.long)
+    return env_ids.to(device=env.device, dtype=torch.long)
+
+
+def _stage2_buffer(
+    env: "ManagerBasedRlEnv",
+    name: str,
+    *,
+    shape: tuple[int, ...],
+    dtype: torch.dtype,
+) -> torch.Tensor:
+    value = getattr(env, name, None)
+    expected_shape = (env.num_envs, *shape)
+    if value is None or tuple(value.shape) != expected_shape:
+        value = torch.zeros(expected_shape, device=env.device, dtype=dtype)
+        setattr(env, name, value)
+    return value
+
+
+def _stage2_spawn_is_clear(
+    egg_xy_local: torch.Tensor,
+    *,
+    robot_centerline_x: float,
+    min_robot_centerline_clearance: float,
+    bucket_xy_local: tuple[float, float],
+    min_bucket_center_clearance: float,
+) -> torch.Tensor:
+    """Conservative reset-time clearance screen for the egg/pedestal pair.
+
+    The robot is represented by a vertical centreline exclusion strip because
+    its 21 links can bend along the work direction. The bucket is represented
+    by a centre-distance exclusion region. These tests prevent obviously
+    intersecting initial states; the extreme-corner runtime smoke test remains
+    the final check against compiled MuJoCo collision geometry.
+    """
+    robot_clear = (
+        torch.abs(egg_xy_local[:, 0] - robot_centerline_x)
+        >= min_robot_centerline_clearance
+    )
+    bucket_xy = torch.tensor(
+        bucket_xy_local,
+        device=egg_xy_local.device,
+        dtype=egg_xy_local.dtype,
+    )
+    bucket_clear = (
+        torch.linalg.norm(egg_xy_local - bucket_xy, dim=-1)
+        >= min_bucket_center_clearance
+    )
+    return robot_clear & bucket_clear
+
+
+def reset_stage2_egg_and_pedestal(
+    env: "ManagerBasedRlEnv",
+    env_ids: torch.Tensor | None,
+    x_range: tuple[float, float] = (-0.002, 0.002),
+    y_range: tuple[float, float] = (-0.002, 0.002),
+    strata_per_axis: int = 5,
+    nominal_every_n: int = 4,
+    max_resample_attempts: int = 32,
+    robot_centerline_x: float = 0.0,
+    min_robot_centerline_clearance: float = 0.038,
+    bucket_xy_local: tuple[float, float] = (-0.05, 0.15),
+    min_bucket_center_clearance: float = 0.055,
+) -> None:
+    """Reset egg and pedestal with one shared, balanced continuous XY offset.
+
+    Each environment cycles through a two-dimensional stratum. Within a
+    stratum, the offset is sampled continuously and uniformly. One episode in
+    every ``nominal_every_n`` is held exactly at the original S1 condition to
+    monitor retention of the demonstrated skill.
+
+    Only collision-clear candidates are written to the simulator. This is an
+    admissibility screen, not a claim that every admitted point is reachable.
+    Reachability is measured later by repeated frozen-policy evaluation.
+    """
+    if strata_per_axis < 1:
+        raise ValueError("strata_per_axis must be at least 1")
+    if nominal_every_n < 2:
+        raise ValueError("nominal_every_n must be at least 2")
+    if x_range[0] > x_range[1] or y_range[0] > y_range[1]:
+        raise ValueError("spawn ranges must be ordered (minimum, maximum)")
+
+    env_ids = _resolve_env_ids(env, env_ids)
+    num_resets = len(env_ids)
+    if num_resets == 0:
+        return
+
+    reset_count = _stage2_buffer(
+        env,
+        _S2_RESET_COUNT_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )
+    local_count = reset_count[env_ids]
+    is_nominal = local_count.remainder(nominal_every_n) == 0
+
+    num_strata = strata_per_axis * strata_per_axis
+    cycle_index = torch.div(local_count, nominal_every_n, rounding_mode="floor")
+    stratum = (env_ids + cycle_index).remainder(num_strata)
+    stratum_x = stratum.remainder(strata_per_axis)
+    stratum_y = torch.div(stratum, strata_per_axis, rounding_mode="floor")
+
+    x_width = (x_range[1] - x_range[0]) / strata_per_axis
+    y_width = (y_range[1] - y_range[0]) / strata_per_axis
+    x_low = x_range[0] + stratum_x.to(torch.float32) * x_width
+    y_low = y_range[0] + stratum_y.to(torch.float32) * y_width
+
+    offsets = torch.zeros((num_resets, 2), device=env.device)
+    rejection_count = torch.zeros(num_resets, device=env.device, dtype=torch.long)
+    pending = ~is_nominal
+
+    egg = env.scene["egg"]
+    default_egg_state = egg.data.default_root_state[env_ids].clone()
+    nominal_egg_xy = default_egg_state[:, :2]
+    nominal_is_clear = _stage2_spawn_is_clear(
+        nominal_egg_xy,
+        robot_centerline_x=robot_centerline_x,
+        min_robot_centerline_clearance=min_robot_centerline_clearance,
+        bucket_xy_local=bucket_xy_local,
+        min_bucket_center_clearance=min_bucket_center_clearance,
+    )
+    if not torch.all(nominal_is_clear):
+        raise RuntimeError("The nominal S1 spawn fails the S2 clearance screen")
+
+    for _ in range(max_resample_attempts):
+        if not torch.any(pending):
+            break
+        sample_count = int(pending.sum().item())
+        draw = torch.rand((sample_count, 2), device=env.device)
+        candidate_offsets = torch.empty((sample_count, 2), device=env.device)
+        candidate_offsets[:, 0] = x_low[pending] + draw[:, 0] * x_width
+        candidate_offsets[:, 1] = y_low[pending] + draw[:, 1] * y_width
+        candidate_egg_xy = nominal_egg_xy[pending] + candidate_offsets
+        valid = _stage2_spawn_is_clear(
+            candidate_egg_xy,
+            robot_centerline_x=robot_centerline_x,
+            min_robot_centerline_clearance=min_robot_centerline_clearance,
+            bucket_xy_local=bucket_xy_local,
+            min_bucket_center_clearance=min_bucket_center_clearance,
+        )
+        pending_indices = pending.nonzero(as_tuple=False).squeeze(-1)
+        accepted_indices = pending_indices[valid]
+        offsets[accepted_indices] = candidate_offsets[valid]
+        rejection_count[pending_indices[~valid]] += 1
+        pending[accepted_indices] = False
+
+    if torch.any(pending):
+        failed_strata = torch.unique(stratum[pending]).tolist()
+        raise RuntimeError(
+            "No collision-clear Stage-2 spawn found after "
+            f"{max_resample_attempts} attempts in strata {failed_strata}. "
+            "Do not expand the training range until the admissible region is mapped."
+        )
+
+    egg_state = default_egg_state
+    egg_state[:, :3] += env.scene.env_origins[env_ids]
+    egg_state[:, :2] += offsets
+    egg.write_root_state_to_sim(egg_state, env_ids=env_ids)
+
+    pedestal = env.scene["pedestal"]
+    if not pedestal.is_mocap:
+        raise RuntimeError("Stage-2 pedestal must be configured as a mocap body")
+    default_pedestal_state = pedestal.data.default_root_state[env_ids]
+    pedestal_pose = torch.empty((num_resets, 7), device=env.device)
+    pedestal_pose[:, :3] = (
+        default_pedestal_state[:, :3] + env.scene.env_origins[env_ids]
+    )
+    pedestal_pose[:, :2] += offsets
+    pedestal_pose[:, 3:7] = default_pedestal_state[:, 3:7]
+    pedestal.write_mocap_pose_to_sim(pedestal_pose, env_ids=env_ids)
+
+    _stage2_buffer(
+        env,
+        _S2_SPAWN_OFFSET_BUFFER,
+        shape=(2,),
+        dtype=torch.float32,
+    )[env_ids] = offsets
+    _stage2_buffer(
+        env,
+        _S2_SPAWN_NOMINAL_BUFFER,
+        shape=(),
+        dtype=torch.bool,
+    )[env_ids] = is_nominal
+    _stage2_buffer(
+        env,
+        _S2_SPAWN_STRATUM_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )[env_ids] = torch.where(is_nominal, -1, stratum)
+    _stage2_buffer(
+        env,
+        _S2_SPAWN_REJECTION_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )[env_ids] = rejection_count
+    reset_count[env_ids] += 1
+
+
+def stage2_spawn_offset_x_mm(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    offsets = _stage2_buffer(
+        env,
+        _S2_SPAWN_OFFSET_BUFFER,
+        shape=(2,),
+        dtype=torch.float32,
+    )
+    return offsets[:, 0] * 1000.0
+
+
+def stage2_spawn_offset_y_mm(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    offsets = _stage2_buffer(
+        env,
+        _S2_SPAWN_OFFSET_BUFFER,
+        shape=(2,),
+        dtype=torch.float32,
+    )
+    return offsets[:, 1] * 1000.0
+
+
+def stage2_spawn_abs_offset_x_mm(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    return torch.abs(stage2_spawn_offset_x_mm(env))
+
+
+def stage2_spawn_abs_offset_y_mm(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    return torch.abs(stage2_spawn_offset_y_mm(env))
+
+
+def stage2_spawn_is_nominal(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    return _stage2_buffer(
+        env,
+        _S2_SPAWN_NOMINAL_BUFFER,
+        shape=(),
+        dtype=torch.bool,
+    ).to(torch.float32)
+
+
+def stage2_spawn_stratum(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    return _stage2_buffer(
+        env,
+        _S2_SPAWN_STRATUM_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    ).to(torch.float32)
+
+
+def stage2_spawn_rejection_count(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    return _stage2_buffer(
+        env,
+        _S2_SPAWN_REJECTION_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    ).to(torch.float32)
+
 
 def tendon_length(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = ROBOT_CFG) -> torch.Tensor:
     robot: Entity = env.scene[asset_cfg.name]

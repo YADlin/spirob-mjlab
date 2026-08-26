@@ -1,10 +1,11 @@
-"""Environment configuration for deterministic SpiRob egg-to-bucket manipulation.
+"""Environment configurations for SpiRob egg-to-bucket manipulation.
 
-Active task:
-    Mjlab-SpiRob-EggToBucket-Stage1
+Tasks:
+    Mjlab-SpiRob-EggToBucket-Stage1: fixed S1 condition.
+    Mjlab-SpiRob-EggToBucket-Stage2: paired egg/pedestal XY randomization.
 
-The egg starts at a fixed position on the pedestal and the bucket is fixed.
-No spawn or domain randomization is applied in this configuration.
+The robot base and bucket remain fixed in both tasks. Stage 1 is preserved as
+the feasibility baseline; Stage 2 changes only the reset distribution.
 """
 
 from __future__ import annotations
@@ -14,6 +15,8 @@ from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp import time_out
 from spirob_mjlab.actions import RateLimitedTendonLengthActionCfg
 from mjlab.managers.action_manager import ActionTermCfg
+from mjlab.managers.event_manager import EventTermCfg
+from mjlab.managers.metrics_manager import MetricsTermCfg
 from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
@@ -30,6 +33,7 @@ from spirob_mjlab.entities import (
     CABLE_REST,
     bucket_cfg,
     egg_cfg,
+    movable_pedestal_cfg,
     pedestal_cfg,
     spirob_robot_cfg,
 )
@@ -224,5 +228,63 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
         # Give the robot enough time to accidentally discover contact/motion.
         episode_length_s=8.0 if not play else 1.0e9,
     )
+
+
+def spirob_egg_to_bucket_stage2_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """S2-A: retain R002 while learning a small continuous spawn region.
+
+    The S1 MDP is reused without changing its actions, observations, reward,
+    termination conditions, physics, or fixed robot/bucket poses. The only
+    task change is a shared XY offset applied to the egg and pedestal.
+    """
+    cfg = spirob_egg_to_bucket_stage1_env_cfg(play=play)
+    if play:
+        # Failed randomized attempts must time out and reveal another spawn.
+        cfg.episode_length_s = 8.0
+    cfg.scene.entities["pedestal"] = movable_pedestal_cfg()
+    cfg.events["stage2_egg_pedestal_spawn"] = EventTermCfg(
+        func=mdp.reset_stage2_egg_and_pedestal,
+        mode="reset",
+        params={
+            "x_range": (-0.002, 0.002),
+            "y_range": (-0.002, 0.002),
+            "strata_per_axis": 5,
+            "nominal_every_n": 4,
+            "max_resample_attempts": 32,
+            # Egg radius (~20 mm) + robot collision radius (~16 mm)
+            # + 2 mm reset margin, measured from the robot centreline.
+            "min_robot_centerline_clearance": 0.038,
+            # Bucket outer half-width (~33 mm) + egg radius (~20 mm)
+            # + 2 mm reset margin.
+            "min_bucket_center_clearance": 0.055,
+        },
+    )
+    cfg.metrics = {
+        "spawn_offset_x_mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_offset_x_mm,
+            reduce="last",
+        ),
+        "spawn_offset_y_mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_offset_y_mm,
+            reduce="last",
+        ),
+        "spawn_abs_offset_x_mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_abs_offset_x_mm,
+            reduce="last",
+        ),
+        "spawn_abs_offset_y_mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_abs_offset_y_mm,
+            reduce="last",
+        ),
+        "spawn_is_nominal": MetricsTermCfg(
+            func=mdp.stage2_spawn_is_nominal,
+            reduce="last",
+        ),
+        "spawn_rejection_count": MetricsTermCfg(
+            func=mdp.stage2_spawn_rejection_count,
+            reduce="last",
+        ),
+    }
+    return cfg
 
 #######################################################################

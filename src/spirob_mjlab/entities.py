@@ -1,7 +1,9 @@
 """Entity definitions for SpiRob mjlab tasks.
 
 Each detached physical object is its own EntityCfg. The robot is fixed-base and
-articulated; the egg is free; the pedestal and bucket are fixed props.
+articulated; the egg is free; the bucket is fixed. Stage 1 uses a fixed
+pedestal, while Stage 2 uses a mocap variant so the pedestal and egg can share
+one per-environment XY spawn offset.
 """
 
 from __future__ import annotations
@@ -39,6 +41,16 @@ def egg_spec() -> mujoco.MjSpec:
 
 def pedestal_spec() -> mujoco.MjSpec:
     return _spec_from(SPIROB_PEDESTAL_XML)
+
+
+def movable_pedestal_spec() -> mujoco.MjSpec:
+    """Pedestal variant whose fixed root can be positioned per environment."""
+    spec = _spec_from(SPIROB_PEDESTAL_XML)
+    root_body = spec.worldbody.first_body()
+    if root_body is None:
+        raise ValueError("SpiRob pedestal XML has no root body")
+    root_body.mocap = True
+    return spec
 
 
 def bucket_spec() -> mujoco.MjSpec:
@@ -87,6 +99,14 @@ def pedestal_cfg() -> EntityCfg:
     """Fixed pedestal under the default egg start pose."""
     return EntityCfg(
         spec_fn=pedestal_spec,
+        init_state=EntityCfg.InitialStateCfg(pos=(0.05, 0.15, 0.002)),
+    )
+
+
+def movable_pedestal_cfg() -> EntityCfg:
+    """Mocap pedestal used only by tasks that randomize the egg spawn."""
+    return EntityCfg(
+        spec_fn=movable_pedestal_spec,
         init_state=EntityCfg.InitialStateCfg(pos=(0.05, 0.15, 0.002)),
     )
 
