@@ -16,8 +16,16 @@ from mjlab.tasks.registry import load_env_cfg
 
 from spirob_mjlab import mdp
 
-TASK_ID = "Mjlab-SpiRob-EggToBucket-Stage2"
-RANGE_M = 0.002
+TASK_PROFILES = {
+    "Mjlab-SpiRob-EggToBucket-Stage2": {
+        "range_m": 0.002,
+        "nominal_every_n": 4,
+    },
+    "Mjlab-SpiRob-EggToBucket-Stage2B": {
+        "range_m": 0.005,
+        "nominal_every_n": 5,
+    },
+}
 ROBOT_CLEARANCE_M = 0.038
 BUCKET_CLEARANCE_M = 0.055
 BUCKET_XY = torch.tensor((-0.05, 0.15))
@@ -26,6 +34,11 @@ BUCKET_XY = torch.tensor((-0.05, 0.15))
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument(
+        "--task-id",
+        choices=tuple(TASK_PROFILES),
+        default="Mjlab-SpiRob-EggToBucket-Stage2",
+    )
     parser.add_argument("--num-envs", type=int, default=256)
     parser.add_argument("--resets", type=int, default=8)
     parser.add_argument("--seed", type=int, default=42)
@@ -39,10 +52,16 @@ def require(condition: bool, message: str) -> None:
 
 def main() -> int:
     args = parse_args()
+    profile = TASK_PROFILES[args.task_id]
+    range_m = float(profile["range_m"])
+    nominal_every_n = int(profile["nominal_every_n"])
     require(args.num_envs >= 25, "Use at least 25 environments to cover all strata")
-    require(args.resets >= 4, "Use at least four resets to check nominal retention")
+    require(
+        args.resets >= nominal_every_n,
+        f"Use at least {nominal_every_n} resets to check nominal retention",
+    )
 
-    cfg = load_env_cfg(TASK_ID)
+    cfg = load_env_cfg(args.task_id)
     cfg.scene.num_envs = args.num_envs
     cfg.seed = args.seed
     env = ManagerBasedRlEnv(cfg=cfg, device=args.device)
@@ -113,18 +132,21 @@ def main() -> int:
 
     require(max_pair_error <= 1.0e-6, "egg and pedestal offsets differ")
     require(
-        torch.max(torch.abs(offsets)).item() <= RANGE_M + 1.0e-6,
-        "spawn outside configured Â±2 mm range",
+        torch.max(torch.abs(offsets)).item() <= range_m + 1.0e-6,
+        f"spawn outside configured +/-{range_m * 1000.0:g} mm range",
     )
     require(len(randomized_offsets) > 0, "no randomized reset was produced")
     require(len(observed_strata) == 25, "not all 25 spatial strata were sampled")
     require(
         torch.max(rejections).item() == 0,
-        "Â±2 mm should not require clearance-screen rejection sampling",
+        f"+/-{range_m * 1000.0:g} mm should not require rejection sampling",
     )
     require(
-        abs(nominal_fraction - 0.25) <= 1.0 / args.resets,
-        "nominal reset fraction is inconsistent with one-in-four schedule",
+        abs(nominal_fraction - 1.0 / nominal_every_n) <= 1.0 / args.resets,
+        (
+            "nominal reset fraction is inconsistent with "
+            f"one-in-{nominal_every_n} schedule"
+        ),
     )
     require(
         min_robot_clearance >= ROBOT_CLEARANCE_M - 1.0e-6,
@@ -136,6 +158,8 @@ def main() -> int:
     )
 
     print("Stage-2 spawn check: PASS")
+    print(f"  task:                     {args.task_id}")
+    print(f"  configured half-range:    {range_m * 1000.0:.1f} mm")
     print(f"  environments:             {args.num_envs}")
     print(f"  resets checked:           {args.resets}")
     print(f"  initial states checked:   {len(offsets)}")

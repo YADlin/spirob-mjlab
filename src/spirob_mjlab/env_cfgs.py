@@ -2,7 +2,8 @@
 
 Tasks:
     Mjlab-SpiRob-EggToBucket-Stage1: fixed S1 condition.
-    Mjlab-SpiRob-EggToBucket-Stage2: paired egg/pedestal XY randomization.
+    Mjlab-SpiRob-EggToBucket-Stage2: S2-A paired XY randomization at +/-2 mm.
+    Mjlab-SpiRob-EggToBucket-Stage2B: S2-B paired XY randomization at +/-5 mm.
 
 The robot base and bucket remain fixed in both tasks. Stage 1 is preserved as
 the feasibility baseline; Stage 2 changes only the reset distribution.
@@ -230,13 +231,13 @@ def spirob_egg_to_bucket_stage1_env_cfg(play: bool = False) -> ManagerBasedRlEnv
     )
 
 
-def spirob_egg_to_bucket_stage2_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """S2-A: retain R002 while learning a small continuous spawn region.
-
-    The S1 MDP is reused without changing its actions, observations, reward,
-    termination conditions, physics, or fixed robot/bucket poses. The only
-    task change is a shared XY offset applied to the egg and pedestal.
-    """
+def _spirob_egg_to_bucket_spawn_env_cfg(
+    *,
+    play: bool,
+    spawn_half_range_m: float,
+    nominal_every_n: int,
+) -> ManagerBasedRlEnvCfg:
+    """Build a paired egg/pedestal spawn-randomized curriculum task."""
     cfg = spirob_egg_to_bucket_stage1_env_cfg(play=play)
     if play:
         # Failed randomized attempts must time out and reveal another spawn.
@@ -246,10 +247,10 @@ def spirob_egg_to_bucket_stage2_env_cfg(play: bool = False) -> ManagerBasedRlEnv
         func=mdp.reset_stage2_egg_and_pedestal,
         mode="reset",
         params={
-            "x_range": (-0.002, 0.002),
-            "y_range": (-0.002, 0.002),
+            "x_range": (-spawn_half_range_m, spawn_half_range_m),
+            "y_range": (-spawn_half_range_m, spawn_half_range_m),
             "strata_per_axis": 5,
-            "nominal_every_n": 4,
+            "nominal_every_n": nominal_every_n,
             "max_resample_attempts": 32,
             # Egg radius (~20 mm) + robot collision radius (~16 mm)
             # + 2 mm reset margin, measured from the robot centreline.
@@ -286,5 +287,31 @@ def spirob_egg_to_bucket_stage2_env_cfg(play: bool = False) -> ManagerBasedRlEnv
         ),
     }
     return cfg
+
+
+def spirob_egg_to_bucket_stage2_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """S2-A: 25% nominal and 75% stratified continuous spawns at +/-2 mm.
+
+    This task is preserved unchanged so the accepted S2-A checkpoint and its
+    evaluation remain reproducible.
+    """
+    return _spirob_egg_to_bucket_spawn_env_cfg(
+        play=play,
+        spawn_half_range_m=0.002,
+        nominal_every_n=4,
+    )
+
+
+def spirob_egg_to_bucket_stage2b_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """S2-B: 20% nominal and 80% stratified continuous spawns at +/-5 mm.
+
+    Actor/critic weights are initialized from the accepted S2-A checkpoint.
+    Reward, observations, actions, physics, robot base, and bucket are unchanged.
+    """
+    return _spirob_egg_to_bucket_spawn_env_cfg(
+        play=play,
+        spawn_half_range_m=0.005,
+        nominal_every_n=5,
+    )
 
 #######################################################################
