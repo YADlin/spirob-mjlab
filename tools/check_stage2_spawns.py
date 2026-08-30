@@ -18,12 +18,20 @@ from spirob_mjlab import mdp
 
 TASK_PROFILES = {
     "Mjlab-SpiRob-EggToBucket-Stage2": {
+        "kind": "single_range",
         "range_m": 0.002,
         "nominal_every_n": 4,
     },
     "Mjlab-SpiRob-EggToBucket-Stage2B": {
+        "kind": "single_range",
         "range_m": 0.005,
         "nominal_every_n": 5,
+    },
+    "Mjlab-SpiRob-EggToBucket-Stage2C": {
+        "kind": "mixed_range",
+        "range_m": 0.010,
+        "core_range_m": 0.005,
+        "group_fractions": (0.10, 0.30, 0.60),
     },
 }
 ROBOT_CLEARANCE_M = 0.038
@@ -54,7 +62,7 @@ def main() -> int:
     args = parse_args()
     profile = TASK_PROFILES[args.task_id]
     range_m = float(profile["range_m"])
-    nominal_every_n = int(profile["nominal_every_n"])
+    nominal_every_n = int(profile.get("nominal_every_n", 10))
     require(args.num_envs >= 25, "Use at least 25 environments to cover all strata")
     require(
         args.resets >= nominal_every_n,
@@ -70,6 +78,8 @@ def main() -> int:
     all_nominal = []
     all_strata = []
     all_rejections = []
+    all_core = []
+    all_expanded = []
     max_pair_error = 0.0
     min_robot_clearance = float("inf")
     min_bucket_clearance = float("inf")
@@ -101,6 +111,13 @@ def main() -> int:
             all_nominal.append(nominal.detach().cpu())
             all_strata.append(stratum.detach().cpu())
             all_rejections.append(rejections.detach().cpu())
+            if profile["kind"] == "mixed_range":
+                all_core.append(
+                    mdp.stage2_spawn_is_core_5mm(env).bool().detach().cpu()
+                )
+                all_expanded.append(
+                    mdp.stage2_spawn_is_expanded_10mm(env).bool().detach().cpu()
+                )
 
             egg_xy_local = egg.data.root_link_pos_w[:, :2] - origins
             min_robot_clearance = min(
@@ -141,13 +158,62 @@ def main() -> int:
         torch.max(rejections).item() == 0,
         f"+/-{range_m * 1000.0:g} mm should not require rejection sampling",
     )
-    require(
-        abs(nominal_fraction - 1.0 / nominal_every_n) <= 1.0 / args.resets,
-        (
-            "nominal reset fraction is inconsistent with "
-            f"one-in-{nominal_every_n} schedule"
-        ),
-    )
+    if profile["kind"] == "single_range":
+        require(
+            abs(nominal_fraction - 1.0 / nominal_every_n) <= 1.0 / args.resets,
+            (
+                "nominal reset fraction is inconsistent with "
+                f"one-in-{nominal_every_n} schedule"
+            ),
+        )
+        group_report = None
+    else:
+        core = torch.cat(all_core)
+        expanded = torch.cat(all_expanded)
+        membership_count = (
+            nominal.to(torch.int8)
+            + core.to(torch.int8)
+            + expanded.to(torch.int8)
+        )
+        require(
+            torch.all(membership_count == 1).item(),
+            "each S2-C reset must belong to exactly one spawn group",
+        )
+        fractions = torch.stack(
+            [
+                nominal.to(torch.float32).mean(),
+                core.to(torch.float32).mean(),
+                expanded.to(torch.float32).mean(),
+            ]
+        )
+        expected = torch.tensor(profile["group_fractions"])
+        fraction_tolerance = 1.0 / args.num_envs + 1.0 / len(offsets)
+        require(
+            torch.max(torch.abs(fractions - expected)).item()
+            <= fraction_tolerance,
+            "S2-C group fractions do not match the 10/30/60 schedule",
+        )
+        core_offsets = offsets[core]
+        expanded_offsets = offsets[expanded]
+        require(len(core_offsets) > 0, "no S2-C core reset was produced")
+        require(len(expanded_offsets) > 0, "no S2-C expanded reset was produced")
+        require(
+            torch.max(torch.abs(core_offsets)).item()
+            <= float(profile["core_range_m"]) + 1.0e-6,
+            "S2-C core spawn exceeded +/-5 mm",
+        )
+        require(
+            torch.any(
+                torch.max(torch.abs(expanded_offsets), dim=1).values
+                > float(profile["core_range_m"])
+            ).item(),
+            "S2-C expanded group did not sample outside the +/-5 mm core",
+        )
+        core_strata = torch.unique(strata[core & (strata >= 0)])
+        expanded_strata = torch.unique(strata[expanded & (strata >= 0)])
+        require(len(core_strata) == 25, "S2-C core missed spatial strata")
+        require(len(expanded_strata) == 25, "S2-C expanded group missed strata")
+        group_report = fractions.tolist()
     require(
         min_robot_clearance >= ROBOT_CLEARANCE_M - 1.0e-6,
         "spawn failed robot clearance rule",
@@ -164,6 +230,9 @@ def main() -> int:
     print(f"  resets checked:           {args.resets}")
     print(f"  initial states checked:   {len(offsets)}")
     print(f"  nominal fraction:         {nominal_fraction:.3f}")
+    if group_report is not None:
+        print(f"  core +/-5 mm fraction:    {group_report[1]:.3f}")
+        print(f"  expanded +/-10 mm frac.:  {group_report[2]:.3f}")
     print(f"  spatial strata observed:  {len(observed_strata)}/25")
     print(f"  rejected candidates:      {rejections.sum().item()}")
     print(f"  maximum pair error:       {max_pair_error * 1000.0:.6f} mm")

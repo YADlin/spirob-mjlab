@@ -26,7 +26,14 @@ _S2_SPAWN_OFFSET_BUFFER = "_stage2_spawn_offset_xy"
 _S2_SPAWN_NOMINAL_BUFFER = "_stage2_spawn_is_nominal"
 _S2_SPAWN_STRATUM_BUFFER = "_stage2_spawn_stratum"
 _S2_SPAWN_REJECTION_BUFFER = "_stage2_spawn_rejection_count"
+_S2_SPAWN_GROUP_BUFFER = "_stage2_spawn_group"
 _S2_RESET_COUNT_BUFFER = "_stage2_reset_count"
+_S2_CORE_RESET_COUNT_BUFFER = "_stage2_core_reset_count"
+_S2_EXPANDED_RESET_COUNT_BUFFER = "_stage2_expanded_reset_count"
+
+_S2_GROUP_NOMINAL = 0
+_S2_GROUP_CORE_5MM = 1
+_S2_GROUP_EXPANDED_10MM = 2
 
 
 def _resolve_env_ids(
@@ -232,6 +239,200 @@ def reset_stage2_egg_and_pedestal(
     reset_count[env_ids] += 1
 
 
+def reset_stage2c_egg_and_pedestal(
+    env: "ManagerBasedRlEnv",
+    env_ids: torch.Tensor | None,
+    core_half_range_m: float = 0.005,
+    expanded_half_range_m: float = 0.010,
+    strata_per_axis: int = 5,
+    schedule_length: int = 10,
+    nominal_slots: int = 1,
+    core_slots: int = 3,
+    max_resample_attempts: int = 32,
+    robot_centerline_x: float = 0.0,
+    min_robot_centerline_clearance: float = 0.038,
+    bucket_xy_local: tuple[float, float] = (-0.05, 0.15),
+    min_bucket_center_clearance: float = 0.055,
+) -> None:
+    """Reset S2-C with a 10% nominal, 30% core, 60% expanded mixture.
+
+    The egg and pedestal always receive the same offset. Environment identity
+    shifts the deterministic ten-reset schedule so a parallel reset batch is
+    already close to the intended mixture. Each individual environment still
+    receives the exact mixture over every ten of its resets.
+    """
+    if strata_per_axis < 1:
+        raise ValueError("strata_per_axis must be at least 1")
+    if not 0.0 < core_half_range_m < expanded_half_range_m:
+        raise ValueError("require 0 < core range < expanded range")
+    if schedule_length < 3:
+        raise ValueError("schedule_length must be at least 3")
+    if nominal_slots < 1 or core_slots < 1:
+        raise ValueError("nominal_slots and core_slots must be positive")
+    if nominal_slots + core_slots >= schedule_length:
+        raise ValueError("the schedule must contain at least one expanded slot")
+
+    env_ids = _resolve_env_ids(env, env_ids)
+    num_resets = len(env_ids)
+    if num_resets == 0:
+        return
+
+    reset_count = _stage2_buffer(
+        env,
+        _S2_RESET_COUNT_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )
+    local_count = reset_count[env_ids]
+    schedule_slot = (local_count + env_ids).remainder(schedule_length)
+    is_nominal = schedule_slot < nominal_slots
+    is_core = (
+        (schedule_slot >= nominal_slots)
+        & (schedule_slot < nominal_slots + core_slots)
+    )
+    is_expanded = ~(is_nominal | is_core)
+    spawn_group = torch.full(
+        (num_resets,),
+        _S2_GROUP_EXPANDED_10MM,
+        device=env.device,
+        dtype=torch.long,
+    )
+    spawn_group[is_nominal] = _S2_GROUP_NOMINAL
+    spawn_group[is_core] = _S2_GROUP_CORE_5MM
+
+    core_count = _stage2_buffer(
+        env,
+        _S2_CORE_RESET_COUNT_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )
+    expanded_count = _stage2_buffer(
+        env,
+        _S2_EXPANDED_RESET_COUNT_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )
+    group_count = torch.where(
+        is_core,
+        core_count[env_ids],
+        expanded_count[env_ids],
+    )
+    num_strata = strata_per_axis * strata_per_axis
+    # Seven is coprime to 25. It spreads parallel environments across all
+    # cells; the group-specific counters then cycle every environment through
+    # every cell independently for core and expanded samples.
+    stratum = (7 * env_ids + group_count).remainder(num_strata)
+    stratum_x = stratum.remainder(strata_per_axis)
+    stratum_y = torch.div(stratum, strata_per_axis, rounding_mode="floor")
+    half_range = torch.where(
+        is_core,
+        torch.full_like(stratum, core_half_range_m, dtype=torch.float32),
+        torch.full_like(stratum, expanded_half_range_m, dtype=torch.float32),
+    )
+    cell_width = 2.0 * half_range / strata_per_axis
+    x_low = -half_range + stratum_x.to(torch.float32) * cell_width
+    y_low = -half_range + stratum_y.to(torch.float32) * cell_width
+
+    offsets = torch.zeros((num_resets, 2), device=env.device)
+    rejection_count = torch.zeros(num_resets, device=env.device, dtype=torch.long)
+    pending = ~is_nominal
+
+    egg = env.scene["egg"]
+    default_egg_state = egg.data.default_root_state[env_ids].clone()
+    nominal_egg_xy = default_egg_state[:, :2]
+    nominal_is_clear = _stage2_spawn_is_clear(
+        nominal_egg_xy,
+        robot_centerline_x=robot_centerline_x,
+        min_robot_centerline_clearance=min_robot_centerline_clearance,
+        bucket_xy_local=bucket_xy_local,
+        min_bucket_center_clearance=min_bucket_center_clearance,
+    )
+    if not torch.all(nominal_is_clear):
+        raise RuntimeError("The nominal S1 spawn fails the S2-C clearance screen")
+
+    for _ in range(max_resample_attempts):
+        if not torch.any(pending):
+            break
+        sample_count = int(pending.sum().item())
+        draw = torch.rand((sample_count, 2), device=env.device)
+        candidate_offsets = torch.empty((sample_count, 2), device=env.device)
+        candidate_offsets[:, 0] = x_low[pending] + draw[:, 0] * cell_width[pending]
+        candidate_offsets[:, 1] = y_low[pending] + draw[:, 1] * cell_width[pending]
+        candidate_egg_xy = nominal_egg_xy[pending] + candidate_offsets
+        valid = _stage2_spawn_is_clear(
+            candidate_egg_xy,
+            robot_centerline_x=robot_centerline_x,
+            min_robot_centerline_clearance=min_robot_centerline_clearance,
+            bucket_xy_local=bucket_xy_local,
+            min_bucket_center_clearance=min_bucket_center_clearance,
+        )
+        pending_indices = pending.nonzero(as_tuple=False).squeeze(-1)
+        accepted_indices = pending_indices[valid]
+        offsets[accepted_indices] = candidate_offsets[valid]
+        rejection_count[pending_indices[~valid]] += 1
+        pending[accepted_indices] = False
+
+    if torch.any(pending):
+        failed_groups = torch.unique(spawn_group[pending]).tolist()
+        failed_strata = torch.unique(stratum[pending]).tolist()
+        raise RuntimeError(
+            "No collision-clear S2-C spawn found after "
+            f"{max_resample_attempts} attempts in groups {failed_groups}, "
+            f"strata {failed_strata}. Do not train this distribution."
+        )
+
+    egg_state = default_egg_state
+    egg_state[:, :3] += env.scene.env_origins[env_ids]
+    egg_state[:, :2] += offsets
+    egg.write_root_state_to_sim(egg_state, env_ids=env_ids)
+
+    pedestal = env.scene["pedestal"]
+    if not pedestal.is_mocap:
+        raise RuntimeError("S2-C pedestal must be configured as a mocap body")
+    default_pedestal_state = pedestal.data.default_root_state[env_ids]
+    pedestal_pose = torch.empty((num_resets, 7), device=env.device)
+    pedestal_pose[:, :3] = (
+        default_pedestal_state[:, :3] + env.scene.env_origins[env_ids]
+    )
+    pedestal_pose[:, :2] += offsets
+    pedestal_pose[:, 3:7] = default_pedestal_state[:, 3:7]
+    pedestal.write_mocap_pose_to_sim(pedestal_pose, env_ids=env_ids)
+
+    _stage2_buffer(
+        env,
+        _S2_SPAWN_OFFSET_BUFFER,
+        shape=(2,),
+        dtype=torch.float32,
+    )[env_ids] = offsets
+    _stage2_buffer(
+        env,
+        _S2_SPAWN_NOMINAL_BUFFER,
+        shape=(),
+        dtype=torch.bool,
+    )[env_ids] = is_nominal
+    _stage2_buffer(
+        env,
+        _S2_SPAWN_GROUP_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )[env_ids] = spawn_group
+    _stage2_buffer(
+        env,
+        _S2_SPAWN_STRATUM_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )[env_ids] = torch.where(is_nominal, -1, stratum)
+    _stage2_buffer(
+        env,
+        _S2_SPAWN_REJECTION_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )[env_ids] = rejection_count
+    core_count[env_ids[is_core]] += 1
+    expanded_count[env_ids[is_expanded]] += 1
+    reset_count[env_ids] += 1
+
+
 def stage2_spawn_offset_x_mm(env: "ManagerBasedRlEnv") -> torch.Tensor:
     offsets = _stage2_buffer(
         env,
@@ -276,6 +477,26 @@ def stage2_spawn_stratum(env: "ManagerBasedRlEnv") -> torch.Tensor:
         shape=(),
         dtype=torch.long,
     ).to(torch.float32)
+
+
+def stage2_spawn_is_core_5mm(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    groups = _stage2_buffer(
+        env,
+        _S2_SPAWN_GROUP_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )
+    return (groups == _S2_GROUP_CORE_5MM).to(torch.float32)
+
+
+def stage2_spawn_is_expanded_10mm(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    groups = _stage2_buffer(
+        env,
+        _S2_SPAWN_GROUP_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )
+    return (groups == _S2_GROUP_EXPANDED_10MM).to(torch.float32)
 
 
 def stage2_spawn_rejection_count(env: "ManagerBasedRlEnv") -> torch.Tensor:

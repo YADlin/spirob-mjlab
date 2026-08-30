@@ -4,8 +4,10 @@ Tasks:
     Mjlab-SpiRob-EggToBucket-Stage1: fixed S1 condition.
     Mjlab-SpiRob-EggToBucket-Stage2: S2-A paired XY randomization at +/-2 mm.
     Mjlab-SpiRob-EggToBucket-Stage2B: S2-B paired XY randomization at +/-5 mm.
+    Mjlab-SpiRob-EggToBucket-Stage2C: mixed retention/acquisition curriculum
+        with nominal, +/-5 mm, and +/-10 mm paired XY spawns.
 
-The robot base and bucket remain fixed in both tasks. Stage 1 is preserved as
+The robot base and bucket remain fixed in all tasks. Stage 1 is preserved as
 the feasibility baseline; Stage 2 changes only the reset distribution.
 """
 
@@ -313,5 +315,70 @@ def spirob_egg_to_bucket_stage2b_env_cfg(play: bool = False) -> ManagerBasedRlEn
         spawn_half_range_m=0.005,
         nominal_every_n=5,
     )
+
+
+def spirob_egg_to_bucket_stage2c_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """S2-C: retain the learned core while expanding acquisition to +/-10 mm.
+
+    The deterministic reset schedule gives each environment, over every ten
+    resets, one exact nominal spawn, three stratified continuous +/-5 mm
+    spawns, and six stratified continuous +/-10 mm spawns. Actor/critic weights
+    are initialized from the accepted S2-B checkpoint. Reward, observations,
+    actions, physics, robot base, and bucket remain unchanged.
+    """
+    cfg = spirob_egg_to_bucket_stage1_env_cfg(play=play)
+    if play:
+        cfg.episode_length_s = 8.0
+    cfg.scene.entities["pedestal"] = movable_pedestal_cfg()
+    cfg.events["stage2_egg_pedestal_spawn"] = EventTermCfg(
+        func=mdp.reset_stage2c_egg_and_pedestal,
+        mode="reset",
+        params={
+            "core_half_range_m": 0.005,
+            "expanded_half_range_m": 0.010,
+            "strata_per_axis": 5,
+            "schedule_length": 10,
+            "nominal_slots": 1,
+            "core_slots": 3,
+            "max_resample_attempts": 32,
+            "min_robot_centerline_clearance": 0.038,
+            "min_bucket_center_clearance": 0.055,
+        },
+    )
+    cfg.metrics = {
+        "spawn_offset_x_mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_offset_x_mm,
+            reduce="last",
+        ),
+        "spawn_offset_y_mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_offset_y_mm,
+            reduce="last",
+        ),
+        "spawn_abs_offset_x_mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_abs_offset_x_mm,
+            reduce="last",
+        ),
+        "spawn_abs_offset_y_mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_abs_offset_y_mm,
+            reduce="last",
+        ),
+        "spawn_is_nominal": MetricsTermCfg(
+            func=mdp.stage2_spawn_is_nominal,
+            reduce="last",
+        ),
+        "spawn_is_core_5mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_is_core_5mm,
+            reduce="last",
+        ),
+        "spawn_is_expanded_10mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_is_expanded_10mm,
+            reduce="last",
+        ),
+        "spawn_rejection_count": MetricsTermCfg(
+            func=mdp.stage2_spawn_rejection_count,
+            reduce="last",
+        ),
+    }
+    return cfg
 
 #######################################################################
