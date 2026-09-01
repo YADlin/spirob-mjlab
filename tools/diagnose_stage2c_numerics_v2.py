@@ -295,7 +295,8 @@ def _available_raw_state(
         value = getattr(raw_env.sim.data, name, None)
         if value is None:
             continue
-        tensor = value if torch.is_tensor(value) else wp.to_torch(value)
+        source = getattr(value, "wp_array", value)
+        tensor = value if torch.is_tensor(value) else wp.to_torch(source)
         if tensor.ndim >= 2 and tensor.shape[0] >= active_count:
             available[name] = tensor[:active_count]
     return available
@@ -310,7 +311,8 @@ def _available_raw_scalars(
         value = getattr(raw_env.sim.data, name, None)
         if value is None:
             continue
-        tensor = value if torch.is_tensor(value) else wp.to_torch(value)
+        source = getattr(value, "wp_array", value)
+        tensor = value if torch.is_tensor(value) else wp.to_torch(source)
         if tensor.ndim == 1 and tensor.shape[0] >= active_count:
             available[name] = tensor[:active_count]
     return available
