@@ -12,6 +12,11 @@ import torch
 from mjlab.entity import Entity
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 
+from spirob_mjlab.sector_curriculum import (
+    RETENTION_CELL_LOWER_LEFT_MM,
+    RETENTION_CELL_SIZE_MM,
+)
+
 if TYPE_CHECKING:
     from mjlab.envs import ManagerBasedRlEnv
 
@@ -30,10 +35,18 @@ _S2_SPAWN_GROUP_BUFFER = "_stage2_spawn_group"
 _S2_RESET_COUNT_BUFFER = "_stage2_reset_count"
 _S2_CORE_RESET_COUNT_BUFFER = "_stage2_core_reset_count"
 _S2_EXPANDED_RESET_COUNT_BUFFER = "_stage2_expanded_reset_count"
+_S2_RETENTION_RESET_COUNT_BUFFER = "_stage2_retention_reset_count"
+_S2_SECTOR_RESET_COUNT_BUFFER = "_stage2_sector_reset_count"
+_S2_SPAWN_RADIUS_BUFFER = "_stage2_spawn_radius_m"
+_S2_SPAWN_ANGLE_BUFFER = "_stage2_spawn_angle_deg"
+_S2_SPAWN_RADIAL_STRATUM_BUFFER = "_stage2_spawn_radial_stratum"
+_S2_SPAWN_ANGULAR_STRATUM_BUFFER = "_stage2_spawn_angular_stratum"
 
 _S2_GROUP_NOMINAL = 0
 _S2_GROUP_CORE_5MM = 1
 _S2_GROUP_EXPANDED_10MM = 2
+_S2_GROUP_RETENTION = _S2_GROUP_CORE_5MM
+_S2_GROUP_SECTOR = _S2_GROUP_EXPANDED_10MM
 
 
 def _resolve_env_ids(
@@ -433,6 +446,247 @@ def reset_stage2c_egg_and_pedestal(
     reset_count[env_ids] += 1
 
 
+def reset_stage2_sector_egg_and_pedestal(
+    env: "ManagerBasedRlEnv",
+    env_ids: torch.Tensor | None,
+    radius_range_m: tuple[float, float],
+    angle_range_deg: tuple[float, float],
+    radial_strata: int = 5,
+    angular_strata: int = 5,
+    schedule_length: int = 10,
+    nominal_slots: int = 1,
+    retention_slots: int = 3,
+    max_resample_attempts: int = 128,
+    robot_centerline_x: float = 0.0,
+    min_robot_centerline_clearance: float = 0.038,
+    bucket_xy_local: tuple[float, float] = (-0.05, 0.15),
+    min_bucket_center_clearance: float = 0.055,
+) -> None:
+    """Reset the shared 10/30/60 nominal/retention/sector curriculum.
+
+    Sector samples are uniform in area within balanced radial/angular strata.
+    Collision-invalid candidates are rejected and resampled inside the same
+    stratum.  Retention samples are uniform over the 38 cells supported by the
+    archived S2-C map.  That map is rehearsal material only: the acquisition
+    distribution expands through the configured robot-centred polar sector.
+    """
+    if radial_strata < 1 or angular_strata < 1:
+        raise ValueError("radial_strata and angular_strata must be positive")
+    if not 0.0 < radius_range_m[0] < radius_range_m[1]:
+        raise ValueError("radius_range_m must be positive and ordered")
+    if not angle_range_deg[0] < angle_range_deg[1]:
+        raise ValueError("angle_range_deg must be ordered")
+    if schedule_length < 3:
+        raise ValueError("schedule_length must be at least 3")
+    if nominal_slots < 1 or retention_slots < 1:
+        raise ValueError("nominal_slots and retention_slots must be positive")
+    if nominal_slots + retention_slots >= schedule_length:
+        raise ValueError("the schedule must contain at least one sector slot")
+
+    env_ids = _resolve_env_ids(env, env_ids)
+    num_resets = len(env_ids)
+    if num_resets == 0:
+        return
+
+    reset_count = _stage2_buffer(
+        env,
+        _S2_RESET_COUNT_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )
+    local_count = reset_count[env_ids]
+    schedule_slot = (local_count + env_ids).remainder(schedule_length)
+    is_nominal = schedule_slot < nominal_slots
+    is_retention = (
+        (schedule_slot >= nominal_slots)
+        & (schedule_slot < nominal_slots + retention_slots)
+    )
+    is_sector = ~(is_nominal | is_retention)
+    spawn_group = torch.full(
+        (num_resets,),
+        _S2_GROUP_SECTOR,
+        device=env.device,
+        dtype=torch.long,
+    )
+    spawn_group[is_nominal] = _S2_GROUP_NOMINAL
+    spawn_group[is_retention] = _S2_GROUP_RETENTION
+
+    retention_count = _stage2_buffer(
+        env,
+        _S2_RETENTION_RESET_COUNT_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )
+    sector_count = _stage2_buffer(
+        env,
+        _S2_SECTOR_RESET_COUNT_BUFFER,
+        shape=(),
+        dtype=torch.long,
+    )
+
+    retention_cells = torch.tensor(
+        RETENTION_CELL_LOWER_LEFT_MM,
+        device=env.device,
+        dtype=torch.float32,
+    )
+    retention_cell = (env_ids + retention_count[env_ids]).remainder(
+        len(RETENTION_CELL_LOWER_LEFT_MM)
+    )
+
+    num_sector_strata = radial_strata * angular_strata
+    sector_stratum = (env_ids + sector_count[env_ids]).remainder(
+        num_sector_strata
+    )
+    radial_stratum = sector_stratum.remainder(radial_strata)
+    angular_stratum = torch.div(
+        sector_stratum, radial_strata, rounding_mode="floor"
+    )
+
+    radius_min, radius_max = radius_range_m
+    radius_width = (radius_max - radius_min) / radial_strata
+    radius_low = radius_min + radial_stratum.to(torch.float32) * radius_width
+    radius_high = radius_low + radius_width
+    angle_min, angle_max = angle_range_deg
+    angle_width = (angle_max - angle_min) / angular_strata
+    angle_low = angle_min + angular_stratum.to(torch.float32) * angle_width
+
+    offsets = torch.zeros((num_resets, 2), device=env.device)
+    rejection_count = torch.zeros(num_resets, device=env.device, dtype=torch.long)
+    pending = ~is_nominal
+
+    egg = env.scene["egg"]
+    default_egg_state = egg.data.default_root_state[env_ids].clone()
+    nominal_egg_xy = default_egg_state[:, :2].clone()
+    nominal_is_clear = _stage2_spawn_is_clear(
+        nominal_egg_xy,
+        robot_centerline_x=robot_centerline_x,
+        min_robot_centerline_clearance=min_robot_centerline_clearance,
+        bucket_xy_local=bucket_xy_local,
+        min_bucket_center_clearance=min_bucket_center_clearance,
+    )
+    if not torch.all(nominal_is_clear):
+        raise RuntimeError("The nominal S1 spawn fails the sector clearance screen")
+
+    for _ in range(max_resample_attempts):
+        if not torch.any(pending):
+            break
+        pending_indices = pending.nonzero(as_tuple=False).squeeze(-1)
+        draw = torch.rand((len(pending_indices), 2), device=env.device)
+        candidate_xy = torch.empty((len(pending_indices), 2), device=env.device)
+
+        pending_retention = is_retention[pending_indices]
+        if torch.any(pending_retention):
+            indices = pending_indices[pending_retention]
+            cell_low_mm = retention_cells[retention_cell[indices]]
+            within_cell = draw[pending_retention] * RETENTION_CELL_SIZE_MM
+            candidate_offset_m = (cell_low_mm + within_cell) / 1000.0
+            candidate_xy[pending_retention] = nominal_egg_xy[indices] + (
+                candidate_offset_m
+            )
+
+        pending_sector = is_sector[pending_indices]
+        if torch.any(pending_sector):
+            indices = pending_indices[pending_sector]
+            sector_draw = draw[pending_sector]
+            r_low = radius_low[indices]
+            r_high = radius_high[indices]
+            radius = torch.sqrt(
+                r_low.square()
+                + sector_draw[:, 0] * (r_high.square() - r_low.square())
+            )
+            angle_deg = angle_low[indices] + sector_draw[:, 1] * angle_width
+            angle_rad = torch.deg2rad(angle_deg)
+            candidate_xy[pending_sector, 0] = radius * torch.cos(angle_rad)
+            candidate_xy[pending_sector, 1] = radius * torch.sin(angle_rad)
+
+        valid = _stage2_spawn_is_clear(
+            candidate_xy,
+            robot_centerline_x=robot_centerline_x,
+            min_robot_centerline_clearance=min_robot_centerline_clearance,
+            bucket_xy_local=bucket_xy_local,
+            min_bucket_center_clearance=min_bucket_center_clearance,
+        )
+        accepted_indices = pending_indices[valid]
+        offsets[accepted_indices] = (
+            candidate_xy[valid] - nominal_egg_xy[accepted_indices]
+        )
+        rejection_count[pending_indices[~valid]] += 1
+        pending[accepted_indices] = False
+
+    if torch.any(pending):
+        failed_groups = torch.unique(spawn_group[pending]).tolist()
+        failed_strata = torch.unique(sector_stratum[pending & is_sector]).tolist()
+        raise RuntimeError(
+            "No collision-clear sector spawn found after "
+            f"{max_resample_attempts} attempts in groups {failed_groups}, "
+            f"sector strata {failed_strata}."
+        )
+
+    egg_state = default_egg_state
+    egg_state[:, :3] += env.scene.env_origins[env_ids]
+    egg_state[:, :2] += offsets
+    egg.write_root_state_to_sim(egg_state, env_ids=env_ids)
+
+    pedestal = env.scene["pedestal"]
+    if not pedestal.is_mocap:
+        raise RuntimeError("Sector pedestal must be configured as a mocap body")
+    default_pedestal_state = pedestal.data.default_root_state[env_ids]
+    pedestal_pose = torch.empty((num_resets, 7), device=env.device)
+    pedestal_pose[:, :3] = (
+        default_pedestal_state[:, :3] + env.scene.env_origins[env_ids]
+    )
+    pedestal_pose[:, :2] += offsets
+    pedestal_pose[:, 3:7] = default_pedestal_state[:, 3:7]
+    pedestal.write_mocap_pose_to_sim(pedestal_pose, env_ids=env_ids)
+
+    spawn_xy = nominal_egg_xy + offsets
+    spawn_radius = torch.linalg.norm(spawn_xy, dim=-1)
+    spawn_angle_deg = torch.rad2deg(torch.atan2(spawn_xy[:, 1], spawn_xy[:, 0]))
+    reported_radial_stratum = torch.where(
+        is_sector, radial_stratum, torch.full_like(radial_stratum, -1)
+    )
+    reported_angular_stratum = torch.where(
+        is_sector, angular_stratum, torch.full_like(angular_stratum, -1)
+    )
+    reported_stratum = torch.where(
+        is_sector,
+        sector_stratum,
+        torch.where(is_retention, retention_cell, -1),
+    )
+
+    _stage2_buffer(
+        env, _S2_SPAWN_OFFSET_BUFFER, shape=(2,), dtype=torch.float32
+    )[env_ids] = offsets
+    _stage2_buffer(
+        env, _S2_SPAWN_NOMINAL_BUFFER, shape=(), dtype=torch.bool
+    )[env_ids] = is_nominal
+    _stage2_buffer(
+        env, _S2_SPAWN_GROUP_BUFFER, shape=(), dtype=torch.long
+    )[env_ids] = spawn_group
+    _stage2_buffer(
+        env, _S2_SPAWN_STRATUM_BUFFER, shape=(), dtype=torch.long
+    )[env_ids] = reported_stratum
+    _stage2_buffer(
+        env, _S2_SPAWN_REJECTION_BUFFER, shape=(), dtype=torch.long
+    )[env_ids] = rejection_count
+    _stage2_buffer(
+        env, _S2_SPAWN_RADIUS_BUFFER, shape=(), dtype=torch.float32
+    )[env_ids] = spawn_radius
+    _stage2_buffer(
+        env, _S2_SPAWN_ANGLE_BUFFER, shape=(), dtype=torch.float32
+    )[env_ids] = spawn_angle_deg
+    _stage2_buffer(
+        env, _S2_SPAWN_RADIAL_STRATUM_BUFFER, shape=(), dtype=torch.long
+    )[env_ids] = reported_radial_stratum
+    _stage2_buffer(
+        env, _S2_SPAWN_ANGULAR_STRATUM_BUFFER, shape=(), dtype=torch.long
+    )[env_ids] = reported_angular_stratum
+
+    retention_count[env_ids[is_retention]] += 1
+    sector_count[env_ids[is_sector]] += 1
+    reset_count[env_ids] += 1
+
+
 def stage2_spawn_offset_x_mm(env: "ManagerBasedRlEnv") -> torch.Tensor:
     offsets = _stage2_buffer(
         env,
@@ -497,6 +751,44 @@ def stage2_spawn_is_expanded_10mm(env: "ManagerBasedRlEnv") -> torch.Tensor:
         dtype=torch.long,
     )
     return (groups == _S2_GROUP_EXPANDED_10MM).to(torch.float32)
+
+
+def stage2_spawn_is_retention(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    groups = _stage2_buffer(
+        env, _S2_SPAWN_GROUP_BUFFER, shape=(), dtype=torch.long
+    )
+    return (groups == _S2_GROUP_RETENTION).to(torch.float32)
+
+
+def stage2_spawn_is_sector(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    groups = _stage2_buffer(
+        env, _S2_SPAWN_GROUP_BUFFER, shape=(), dtype=torch.long
+    )
+    return (groups == _S2_GROUP_SECTOR).to(torch.float32)
+
+
+def stage2_spawn_radius_mm(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    return _stage2_buffer(
+        env, _S2_SPAWN_RADIUS_BUFFER, shape=(), dtype=torch.float32
+    ) * 1000.0
+
+
+def stage2_spawn_angle_deg(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    return _stage2_buffer(
+        env, _S2_SPAWN_ANGLE_BUFFER, shape=(), dtype=torch.float32
+    )
+
+
+def stage2_spawn_radial_stratum(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    return _stage2_buffer(
+        env, _S2_SPAWN_RADIAL_STRATUM_BUFFER, shape=(), dtype=torch.long
+    ).to(torch.float32)
+
+
+def stage2_spawn_angular_stratum(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    return _stage2_buffer(
+        env, _S2_SPAWN_ANGULAR_STRATUM_BUFFER, shape=(), dtype=torch.long
+    ).to(torch.float32)
 
 
 def stage2_spawn_rejection_count(env: "ManagerBasedRlEnv") -> torch.Tensor:

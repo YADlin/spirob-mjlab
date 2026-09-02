@@ -6,6 +6,8 @@ Tasks:
     Mjlab-SpiRob-EggToBucket-Stage2B: S2-B paired XY randomization at +/-5 mm.
     Mjlab-SpiRob-EggToBucket-Stage2C: mixed retention/acquisition curriculum
         with nominal, +/-5 mm, and +/-10 mm paired XY spawns.
+    Mjlab-SpiRob-EggToBucket-Stage2Sector-*: one shared polar-sector
+        curriculum at one-third, two-thirds, or full expansion.
 
 The robot base and bucket remain fixed in all tasks. Stage 1 is preserved as
 the feasibility baseline; Stage 2 changes only the reset distribution.
@@ -40,6 +42,7 @@ from spirob_mjlab.entities import (
     pedestal_cfg,
     spirob_robot_cfg,
 )
+from spirob_mjlab.sector_curriculum import interpolated_sector_bounds
 
 # Stage-1 action dynamics. Full range remains accessible; only command rate is limited.
 CABLE_ACTION_SCALE_FULL_RANGE = 0.5 * (CABLE_CTRL_RANGE[1] - CABLE_CTRL_RANGE[0])
@@ -380,5 +383,109 @@ def spirob_egg_to_bucket_stage2c_env_cfg(play: bool = False) -> ManagerBasedRlEn
         ),
     }
     return cfg
+
+
+def _spirob_egg_to_bucket_stage2_sector_env_cfg(
+    *,
+    play: bool,
+    expansion_fraction: float,
+) -> ManagerBasedRlEnvCfg:
+    """Build one nested stage of the shared polar-sector curriculum."""
+    radius_range_m, angle_range_deg = interpolated_sector_bounds(
+        expansion_fraction
+    )
+    cfg = spirob_egg_to_bucket_stage1_env_cfg(play=play)
+    if play:
+        cfg.episode_length_s = 8.0
+    cfg.scene.entities["pedestal"] = movable_pedestal_cfg()
+    cfg.events["stage2_egg_pedestal_spawn"] = EventTermCfg(
+        func=mdp.reset_stage2_sector_egg_and_pedestal,
+        mode="reset",
+        params={
+            "radius_range_m": radius_range_m,
+            "angle_range_deg": angle_range_deg,
+            "radial_strata": 5,
+            "angular_strata": 5,
+            "schedule_length": 10,
+            "nominal_slots": 1,
+            "retention_slots": 3,
+            "max_resample_attempts": 128,
+            "min_robot_centerline_clearance": 0.038,
+            "min_bucket_center_clearance": 0.055,
+        },
+    )
+    cfg.metrics = {
+        "spawn_offset_x_mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_offset_x_mm,
+            reduce="last",
+        ),
+        "spawn_offset_y_mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_offset_y_mm,
+            reduce="last",
+        ),
+        "spawn_is_nominal": MetricsTermCfg(
+            func=mdp.stage2_spawn_is_nominal,
+            reduce="last",
+        ),
+        "spawn_is_retention": MetricsTermCfg(
+            func=mdp.stage2_spawn_is_retention,
+            reduce="last",
+        ),
+        "spawn_is_sector": MetricsTermCfg(
+            func=mdp.stage2_spawn_is_sector,
+            reduce="last",
+        ),
+        "spawn_radius_mm": MetricsTermCfg(
+            func=mdp.stage2_spawn_radius_mm,
+            reduce="last",
+        ),
+        "spawn_angle_deg": MetricsTermCfg(
+            func=mdp.stage2_spawn_angle_deg,
+            reduce="last",
+        ),
+        "spawn_radial_stratum": MetricsTermCfg(
+            func=mdp.stage2_spawn_radial_stratum,
+            reduce="last",
+        ),
+        "spawn_angular_stratum": MetricsTermCfg(
+            func=mdp.stage2_spawn_angular_stratum,
+            reduce="last",
+        ),
+        "spawn_rejection_count": MetricsTermCfg(
+            func=mdp.stage2_spawn_rejection_count,
+            reduce="last",
+        ),
+    }
+    return cfg
+
+
+def spirob_egg_to_bucket_stage2_sector_arc1_env_cfg(
+    play: bool = False,
+) -> ManagerBasedRlEnvCfg:
+    """First one-third expansion toward the final polar sector."""
+    return _spirob_egg_to_bucket_stage2_sector_env_cfg(
+        play=play,
+        expansion_fraction=1.0 / 3.0,
+    )
+
+
+def spirob_egg_to_bucket_stage2_sector_arc2_env_cfg(
+    play: bool = False,
+) -> ManagerBasedRlEnvCfg:
+    """Second two-thirds expansion toward the final polar sector."""
+    return _spirob_egg_to_bucket_stage2_sector_env_cfg(
+        play=play,
+        expansion_fraction=2.0 / 3.0,
+    )
+
+
+def spirob_egg_to_bucket_stage2_sector_full_env_cfg(
+    play: bool = False,
+) -> ManagerBasedRlEnvCfg:
+    """Full 120--200 mm, 30--80 degree polar sector."""
+    return _spirob_egg_to_bucket_stage2_sector_env_cfg(
+        play=play,
+        expansion_fraction=1.0,
+    )
 
 #######################################################################

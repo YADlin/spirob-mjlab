@@ -15,6 +15,13 @@ from mjlab.envs import ManagerBasedRlEnv
 from mjlab.tasks.registry import load_env_cfg
 
 from spirob_mjlab import mdp
+from spirob_mjlab.sector_curriculum import (
+    SECTOR_SPECS,
+)
+from spirob_mjlab.workspace_gate import (
+    WorkspaceDecision,
+    stage2c_workspace_decision,
+)
 
 TASK_PROFILES = {
     "Mjlab-SpiRob-EggToBucket-Stage2": {
@@ -34,6 +41,17 @@ TASK_PROFILES = {
         "group_fractions": (0.10, 0.30, 0.60),
     },
 }
+TASK_PROFILES.update(
+    {
+        task_id: {
+            "kind": "sector",
+            "radius_range_m": spec.radius_range_m,
+            "angle_range_deg": spec.angle_range_deg,
+            "group_fractions": (0.10, 0.30, 0.60),
+        }
+        for task_id, spec in SECTOR_SPECS.items()
+    }
+)
 ROBOT_CLEARANCE_M = 0.038
 BUCKET_CLEARANCE_M = 0.055
 BUCKET_XY = torch.tensor((-0.05, 0.15))
@@ -61,7 +79,8 @@ def require(condition: bool, message: str) -> None:
 def main() -> int:
     args = parse_args()
     profile = TASK_PROFILES[args.task_id]
-    range_m = float(profile["range_m"])
+    kind = str(profile["kind"])
+    range_m = float(profile.get("range_m", 0.0))
     nominal_every_n = int(profile.get("nominal_every_n", 10))
     require(args.num_envs >= 25, "Use at least 25 environments to cover all strata")
     require(
@@ -80,6 +99,12 @@ def main() -> int:
     all_rejections = []
     all_core = []
     all_expanded = []
+    all_retention = []
+    all_sector = []
+    all_radius_mm = []
+    all_angle_deg = []
+    all_radial_strata = []
+    all_angular_strata = []
     max_pair_error = 0.0
     min_robot_clearance = float("inf")
     min_bucket_clearance = float("inf")
@@ -111,12 +136,31 @@ def main() -> int:
             all_nominal.append(nominal.detach().cpu())
             all_strata.append(stratum.detach().cpu())
             all_rejections.append(rejections.detach().cpu())
-            if profile["kind"] == "mixed_range":
+            if kind == "mixed_range":
                 all_core.append(
                     mdp.stage2_spawn_is_core_5mm(env).bool().detach().cpu()
                 )
                 all_expanded.append(
                     mdp.stage2_spawn_is_expanded_10mm(env).bool().detach().cpu()
+                )
+            elif kind == "sector":
+                all_retention.append(
+                    mdp.stage2_spawn_is_retention(env).bool().detach().cpu()
+                )
+                all_sector.append(
+                    mdp.stage2_spawn_is_sector(env).bool().detach().cpu()
+                )
+                all_radius_mm.append(
+                    mdp.stage2_spawn_radius_mm(env).detach().cpu()
+                )
+                all_angle_deg.append(
+                    mdp.stage2_spawn_angle_deg(env).detach().cpu()
+                )
+                all_radial_strata.append(
+                    mdp.stage2_spawn_radial_stratum(env).to(torch.long).detach().cpu()
+                )
+                all_angular_strata.append(
+                    mdp.stage2_spawn_angular_stratum(env).to(torch.long).detach().cpu()
                 )
 
             egg_xy_local = egg.data.root_link_pos_w[:, :2] - origins
@@ -148,17 +192,19 @@ def main() -> int:
     nominal_fraction = nominal.to(torch.float32).mean().item()
 
     require(max_pair_error <= 1.0e-6, "egg and pedestal offsets differ")
-    require(
-        torch.max(torch.abs(offsets)).item() <= range_m + 1.0e-6,
-        f"spawn outside configured +/-{range_m * 1000.0:g} mm range",
-    )
+    if kind != "sector":
+        require(
+            torch.max(torch.abs(offsets)).item() <= range_m + 1.0e-6,
+            f"spawn outside configured +/-{range_m * 1000.0:g} mm range",
+        )
     require(len(randomized_offsets) > 0, "no randomized reset was produced")
-    require(len(observed_strata) == 25, "not all 25 spatial strata were sampled")
-    require(
-        torch.max(rejections).item() == 0,
-        f"+/-{range_m * 1000.0:g} mm should not require rejection sampling",
-    )
-    if profile["kind"] == "single_range":
+    if kind != "sector":
+        require(len(observed_strata) == 25, "not all 25 spatial strata were sampled")
+        require(
+            torch.max(rejections).item() == 0,
+            f"+/-{range_m * 1000.0:g} mm should not require rejection sampling",
+        )
+    if kind == "single_range":
         require(
             abs(nominal_fraction - 1.0 / nominal_every_n) <= 1.0 / args.resets,
             (
@@ -167,7 +213,7 @@ def main() -> int:
             ),
         )
         group_report = None
-    else:
+    elif kind == "mixed_range":
         core = torch.cat(all_core)
         expanded = torch.cat(all_expanded)
         membership_count = (
@@ -214,6 +260,74 @@ def main() -> int:
         require(len(core_strata) == 25, "S2-C core missed spatial strata")
         require(len(expanded_strata) == 25, "S2-C expanded group missed strata")
         group_report = fractions.tolist()
+    else:
+        retention = torch.cat(all_retention)
+        sector = torch.cat(all_sector)
+        radii_mm = torch.cat(all_radius_mm)
+        angles_deg = torch.cat(all_angle_deg)
+        radial_strata = torch.cat(all_radial_strata)
+        angular_strata = torch.cat(all_angular_strata)
+        membership_count = (
+            nominal.to(torch.int8)
+            + retention.to(torch.int8)
+            + sector.to(torch.int8)
+        )
+        require(
+            torch.all(membership_count == 1).item(),
+            "each sector reset must belong to exactly one spawn group",
+        )
+        fractions = torch.stack(
+            [
+                nominal.to(torch.float32).mean(),
+                retention.to(torch.float32).mean(),
+                sector.to(torch.float32).mean(),
+            ]
+        )
+        expected = torch.tensor(profile["group_fractions"])
+        fraction_tolerance = 1.0 / args.num_envs + 1.0 / len(offsets)
+        require(
+            torch.max(torch.abs(fractions - expected)).item()
+            <= fraction_tolerance,
+            "sector group fractions do not match the 10/30/60 schedule",
+        )
+        radius_min_m, radius_max_m = profile["radius_range_m"]
+        angle_min_deg, angle_max_deg = profile["angle_range_deg"]
+        sector_radii_m = radii_mm[sector] / 1000.0
+        sector_angles_deg = angles_deg[sector]
+        require(len(sector_radii_m) > 0, "no sector acquisition reset was produced")
+        require(
+            torch.all(sector_radii_m >= float(radius_min_m) - 1.0e-6).item()
+            and torch.all(sector_radii_m <= float(radius_max_m) + 1.0e-6).item(),
+            "sector radius fell outside configured bounds",
+        )
+        require(
+            torch.all(sector_angles_deg >= float(angle_min_deg) - 1.0e-4).item()
+            and torch.all(sector_angles_deg <= float(angle_max_deg) + 1.0e-4).item(),
+            "sector angle fell outside configured bounds",
+        )
+        observed_sector_strata = {
+            (int(r_index), int(a_index))
+            for r_index, a_index in zip(
+                radial_strata[sector].tolist(),
+                angular_strata[sector].tolist(),
+                strict=True,
+            )
+        }
+        require(
+            len(observed_sector_strata) == 25,
+            "sector acquisition group missed radial/angular strata",
+        )
+        retention_xy = offsets[retention] * 1000.0
+        require(len(retention_xy) > 0, "no retained-region reset was produced")
+        require(
+            all(
+                stage2c_workspace_decision(float(x_mm), float(y_mm))
+                == WorkspaceDecision.ATTEMPT_MANIPULATION
+                for x_mm, y_mm in retention_xy.tolist()
+            ),
+            "retention sample fell outside the archived S2-C gate",
+        )
+        group_report = fractions.tolist()
     require(
         min_robot_clearance >= ROBOT_CLEARANCE_M - 1.0e-6,
         "spawn failed robot clearance rule",
@@ -225,15 +339,33 @@ def main() -> int:
 
     print("Stage-2 spawn check: PASS")
     print(f"  task:                     {args.task_id}")
-    print(f"  configured half-range:    {range_m * 1000.0:.1f} mm")
+    if kind == "sector":
+        radius_min_m, radius_max_m = profile["radius_range_m"]
+        angle_min_deg, angle_max_deg = profile["angle_range_deg"]
+        print(
+            "  configured radius:        "
+            f"{1000.0 * float(radius_min_m):.1f}--"
+            f"{1000.0 * float(radius_max_m):.1f} mm"
+        )
+        print(
+            "  configured angle:         "
+            f"{float(angle_min_deg):.2f}--{float(angle_max_deg):.2f} deg"
+        )
+    else:
+        print(f"  configured half-range:    {range_m * 1000.0:.1f} mm")
     print(f"  environments:             {args.num_envs}")
     print(f"  resets checked:           {args.resets}")
     print(f"  initial states checked:   {len(offsets)}")
     print(f"  nominal fraction:         {nominal_fraction:.3f}")
     if group_report is not None:
-        print(f"  core +/-5 mm fraction:    {group_report[1]:.3f}")
-        print(f"  expanded +/-10 mm frac.:  {group_report[2]:.3f}")
-    print(f"  spatial strata observed:  {len(observed_strata)}/25")
+        middle_label = "retention" if kind == "sector" else "core +/-5 mm"
+        outer_label = "sector" if kind == "sector" else "expanded +/-10 mm"
+        print(f"  {middle_label + ' fraction:':<26}{group_report[1]:.3f}")
+        print(f"  {outer_label + ' fraction:':<26}{group_report[2]:.3f}")
+    if kind == "sector":
+        print("  sector strata observed:   25/25")
+    else:
+        print(f"  spatial strata observed:  {len(observed_strata)}/25")
     print(f"  rejected candidates:      {rejections.sum().item()}")
     print(f"  maximum pair error:       {max_pair_error * 1000.0:.6f} mm")
     print(f"  minimum |egg x|:          {min_robot_clearance * 1000.0:.3f} mm")
