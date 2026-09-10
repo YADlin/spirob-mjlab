@@ -66,3 +66,20 @@ for task_id, env_cfg_factory in (
         rl_cfg=spirob_ppo_runner_cfg(stage2=True),
         runner_cls=Stage2FineTuneRunner,
     )
+
+# Independent fixed-spawn information ablation; legacy task IDs stay unchanged.
+from spirob_mjlab.touch_ablation import (
+    TASK_IDS as TOUCH_ABLATION_TASK_IDS,
+    TouchAblationRunner,
+    touch_ablation_env_cfg,
+    touch_ablation_ppo_cfg,
+)
+
+for arm, task_id in TOUCH_ABLATION_TASK_IDS.items():
+    register_mjlab_task(
+        task_id=task_id,
+        env_cfg=touch_ablation_env_cfg(enabled=arm == "touch"),
+        play_env_cfg=touch_ablation_env_cfg(enabled=arm == "touch", play=True),
+        rl_cfg=touch_ablation_ppo_cfg(),
+        runner_cls=TouchAblationRunner,
+    )
