@@ -8,7 +8,7 @@ rectangle on both sides, plus 170 uniform samples from it drawn with a held-out
 seed. Training never uses --placement-seed values >= 10000.
 
 Outcomes
-  knocked_down       success (egg below the support surface after robot contact)
+  knocked_down       success (actual egg-floor contact after robot contact)
   time_out           task failure
   egg_out_of_bounds  task failure
   spontaneous_fall   invalid episode (egg fell without robot contact) - reported separately
@@ -16,7 +16,7 @@ Outcomes
 
 usage:
   uv run python tools/knockdown/evaluate.py --checkpoint <model.pt> --out eval/<name> [--episodes 200]
-  uv run python tools/knockdown/evaluate.py --agent zero --out eval/zero_baseline     # no-action check
+  uv run python tools/knockdown/evaluate.py --agent hold --out eval/hold_baseline     # no-motion check; zero requests D=0
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ import csv
 import hashlib
 import json
 import math
+import subprocess
 from dataclasses import asdict
 from pathlib import Path
 
@@ -38,6 +39,7 @@ from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
 from mjlab.tasks.registry import load_env_cfg, load_rl_cfg
 from spirob_mjlab.knockdown import mdp
 from spirob_mjlab.knockdown.env_cfg import EVAL_ABS_U, EVAL_V
+from spirob_mjlab.knockdown.entities import SOURCE_XML, sha256
 
 OUTCOMES = ("numerical_fault", "knocked_down", "spontaneous_fall", "egg_out_of_bounds", "time_out")
 
@@ -65,18 +67,23 @@ def placements(n: int, seed: int) -> np.ndarray:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--checkpoint")
-    p.add_argument("--agent", choices=["trained", "zero"], default="trained")
+    p.add_argument("--agent", choices=["trained", "hold", "zero"], default="trained")
     p.add_argument("--out", required=True)
     p.add_argument("--episodes", type=int, default=200)
     p.add_argument("--envs", type=int, default=100)
     p.add_argument("--placement-seed", type=int, default=10001)
     p.add_argument("--sim-seed", type=int, default=20001)
+    p.add_argument("--cable-speed-mm-s", type=float, help="Fixed common speed in [5, 20]; default samples the trained range")
     p.add_argument("--nominal", action="store_true", help="disable dynamics randomization")
     p.add_argument("--device", default="cuda:0" if torch.cuda.is_available() else "cpu")
     p.add_argument("--task", default="Mjlab-SpiRob-EggKnockdown-Eval")
     a = p.parse_args()
     if a.agent == "trained" and not a.checkpoint:
         p.error("--checkpoint is required for --agent trained")
+    if a.episodes < 1 or a.envs < 1:
+        p.error("episodes and envs must be positive")
+    if a.cable_speed_mm_s is not None and not 5 <= a.cable_speed_mm_s <= 20:
+        p.error("common speed must be in [5, 20] mm/s")
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=False)
 
@@ -97,7 +104,10 @@ def main():
         runner.load(a.checkpoint, load_cfg={"actor": True}, strict=True, map_location=a.device)
         policy = runner.get_inference_policy(device=a.device)
     else:
-        policy = lambda obs: torch.zeros(n_env, 1, device=a.device)  # noqa: E731
+        def policy(obs):
+            if a.agent == "hold":
+                return mdp.state(base).start_diff / mdp.C.DEFAULT.action.diff_limit_m
+            return torch.zeros(n_env, 1, device=a.device)  # zero requests D=0, not hold
 
     rows = []
     tm = base.termination_manager
@@ -107,6 +117,8 @@ def main():
         ov[: len(batch)] = torch.tensor(batch, dtype=torch.float32, device=a.device)
         base._kd_uv_override = ov
         obs, _ = base.reset()
+        if a.cable_speed_mm_s is not None:
+            base.action_manager.get_term(mdp.ACTION_TERM)._vmax.fill_(a.cable_speed_mm_s / 1000)
         obs = env.get_observations()
         start_diff = mdp.state(base).start_diff[:, 0].cpu().numpy().copy()
         done = np.zeros(n_env, dtype=bool)
@@ -119,6 +131,8 @@ def main():
             disp_before = (mdp.egg_uv_true(base) - mdp.state(base).ped_uv).norm(dim=-1).cpu().numpy()
             obs, _, dones, _ = env.step(act)
             decisions += ~done
+            if int(decisions.max()) % 5 == 0:
+                print(f"batch {start//n_env + 1}: decision {int(decisions.max())}, {int((~done).sum())} active", flush=True)
             fired = {k: tm.get_term(k).cpu().numpy() for k in OUTCOMES}
             for i in np.nonzero(dones.cpu().numpy().astype(bool) & ~done)[0]:
                 outcome = next((k for k in OUTCOMES if fired[k][i]), "unknown")
@@ -148,14 +162,25 @@ def main():
         "success_wilson95_valid": wilson(k, valid) if valid else None,
         "acceptance_target": ">= 190/200 successes (95%) on held-out placements",
         "start_shape": "straight" if a.nominal else "random tabulated shape with p=0.7 (the rig continues from where it stopped)",
-        "meets_target": k >= math.ceil(0.95 * n),
+        "sample_rate_meets_95_percent": k >= math.ceil(0.95 * n),
+        "meets_target": n >= 200 and k >= math.ceil(0.95 * n),
         "placement_seed": a.placement_seed, "sim_seed": a.sim_seed, "nominal_dynamics": a.nominal,
+        "common_speed_mm_s": a.cable_speed_mm_s,
+        "contract_id": mdp.C.CONTRACT_ID,
+        "contract_source_sha256": mdp.C.source_file_sha256(),
+        "source_model_sha256": sha256(SOURCE_XML),
+        "perception_files": {name: sha256(Path(mdp.C.__file__).with_name(name))
+                             for name in ("egg_vision.py", "camera_geometry.py")},
+        "git_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+        "git_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()),
         "eval_region": {"abs_u_m": EVAL_ABS_U, "v_m": EVAL_V},
+        "perception": "rendered_rgb_detector" if "-Camera" in a.task else "geometric_proxy",
         "median_decisions_success": float(np.median([r["decisions"] for r in rows if r["outcome"] == "knocked_down"]))
         if k else None,
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     print(json.dumps({"counts": counts, "success": f"{k}/{n}", "wilson95": summary["success_wilson95_all"]}))
+    env.close()
     try:
         _plot(rows, out / "placements.png")
     except Exception as exc:  # plotting is optional

@@ -10,9 +10,18 @@ from spirob_mjlab.knockdown.entities import EGG_XML, PEDESTAL_XML, robot_spec
 from spirob_mjlab.knockdown.mdp import EGG_SETTLED_Z, PEDESTAL_ROOT_Z
 
 
-def build(egg_uv=(0.08, 0.11), dt=1e-3, diff_m=0.0, ref_offset_m=(0.0, 0.0), robot_dz=0.0, qpos=None):
+def build(egg_uv=(0.08, 0.11), dt=1e-3, diff_m=0.0, ref_offset_m=(0.0, 0.0), robot_dz=0.0, qpos=None,
+          camera=False):
     s = robot_spec()
-    s.worldbody.add_geom(type=mujoco.mjtGeom.mjGEOM_PLANE, size=[2, 2, 0.05])
+    floor = s.worldbody.add_geom(name="floor", type=mujoco.mjtGeom.mjGEOM_PLANE, size=[2, 2, 0.05])
+    if camera:
+        from spirob_mjlab.knockdown.camera import add_camera, FLOOR_RGBA
+        add_camera(s)
+        for geom in s.geoms:
+            geom.rgba = (0.9, 0.9, 0.9, 1.0)
+        floor.rgba = FLOOR_RGBA
+        s.worldbody.add_light(name="sun", pos=(0, 0, 1.5), dir=(0, 0, -1),
+                              type=mujoco.mjtLightType.mjLIGHT_DIRECTIONAL)
     s.option.timestep = dt
     s.option.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
     if robot_dz:

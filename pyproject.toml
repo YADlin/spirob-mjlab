@@ -13,6 +13,7 @@ dependencies = [
     "mujoco==3.8.1",
     "mujoco-warp==3.8.1",
     "warp-lang==1.14.0",
+    "opencv-python-headless==5.0.0.93",
 ]
 
 [project.entry-points."mjlab.tasks"]

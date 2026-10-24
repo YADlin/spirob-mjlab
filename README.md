@@ -505,37 +505,26 @@ are specified in [the S1 protocol](docs/protocols/S1.md).
 
 ## Egg knockdown (camera + encoder policy for the physical rig)
 
-Separate task family for knocking the egg off its pedestal and deploying the policy
-through the SpiRob Lab. The egg-to-bucket task above is unchanged. Design, evidence
-and the policy contract: [docs/knockdown/DESIGN.md](docs/knockdown/DESIGN.md).
+The v3 workflow uses a rendered MuJoCo camera and the Lab's shared black-egg
+detector. The seven-input actor selects bounded D waypoints; both motors use the
+operator-selected common speed (5–20 mm/s) and wait for HOLD between moves.
+No touch sensor or CNN is required.
 
-| Task | Use |
+| Task | Observation source / use |
 | --- | --- |
-| `Mjlab-SpiRob-EggKnockdown-Fixed` | one fixed placement, nominal dynamics (smoke tests) |
-| `Mjlab-SpiRob-EggKnockdown` | randomized placement and dynamics (training) |
-| `Mjlab-SpiRob-EggKnockdown-Eval` | held-out evaluation region |
+| `Mjlab-SpiRob-EggKnockdown-Camera-Fixed` | Rendered RGB; fixed-placement smoke |
+| `Mjlab-SpiRob-EggKnockdown-Camera` | Rendered RGB; randomized PPO training |
+| `Mjlab-SpiRob-EggKnockdown-Camera-Eval` | Rendered RGB; full-region held-out evaluation |
+| Original task names without `-Camera` | Geometric camera proxies for fast comparisons |
 
-Robot: `assets/knockdown/spirob_robot.xml`, derived from NYK's
-`spirob_robot_k2_2.148_20261024_0318.xml` (floor and lights removed; source kept in
-`assets/knockdown/source/`). The Lab must run the same source file.
-Action: one number, the cable difference D (±80 mm, ≤ 8 mm per decision, speed ceiling
-5/10/15 mm/s scaled to the move size). Actor: 7 values from camera + encoders only.
-One step = one 1.2 s decision; 30 decisions per episode.
+**Start here:** [camera demo, evaluation, fine-tuning and Lab commands](docs/knockdown/CAMERA_V3.md).
+The original v2 checkpoint remains a candidate to evaluate under the changed
+speed and termination rules. Deployment export requires a passing camera evaluation.
 
 ```bash
-# fast checks (CPU, ~2 min; 19 tests)
-uv run --with pytest pytest -q tests/test_knockdown_contract.py
-# software smoke on GPU (10 iterations)
-uv run train Mjlab-SpiRob-EggKnockdown-Fixed --env.scene.num-envs 64 --agent.max-iterations 10 \
-  --agent.seed 1 --agent.logger tensorboard --agent.run-name kd-smoke-v2
-# training
-uv run train Mjlab-SpiRob-EggKnockdown --env.scene.num-envs 512 --agent.max-iterations 300 \
-  --agent.seed 1 --agent.logger wandb --agent.wandb-project spirob-knockdown --agent.run-name kd-main-v2-s1
-# share a run for review (ZIP with config, scalar history and plots)
-uv run python tools/export_wandb_run_bundle.py --run ENTITY/spirob-knockdown/RUN_ID --output-root wandb_exports
-# held-out evaluation (200 episodes) and the no-action baseline
-uv run python tools/knockdown/evaluate.py --checkpoint logs/rsl_rl/spirob_knockdown/<run>/model_<i>.pt --out eval/<name>
-uv run python tools/knockdown/evaluate.py --agent zero --out eval/zero-baseline
-# export for the Lab (fails if NumPy/torch parity > 1e-4)
-uv run python tools/knockdown/export_policy.py --checkpoint <model.pt> --out exports/<name>
+MUJOCO_GL=egl uv run --with pytest pytest -q tests/test_knockdown_contract.py tests/test_knockdown_camera.py
 ```
+
+[Design](docs/knockdown/DESIGN.md). The companion bundle contains the Lab operator
+guide at `lab/docs/RL_KNOCKDOWN.md`.
+The egg-to-bucket assets and tasks above remain separate.

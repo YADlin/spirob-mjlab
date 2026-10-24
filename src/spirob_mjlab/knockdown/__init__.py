@@ -33,3 +33,14 @@ register_mjlab_task(
     play_env_cfg=knockdown_env_cfg(play=True, region="eval"),
     rl_cfg=knockdown_ppo_runner_cfg(),
 )
+
+# Genuine RGB perception tasks. The original geometric-observation tasks remain
+# available for fast baselines, explicitly distinguished in run/evaluation names.
+for suffix, kwargs in (("", {}), ("-Fixed", {"fixed": True, "randomize": False}),
+                       ("-Eval", {"region": "eval"})):
+    register_mjlab_task(
+        task_id="Mjlab-SpiRob-EggKnockdown-Camera" + suffix,
+        env_cfg=knockdown_env_cfg(rendered_camera=True, **kwargs),
+        play_env_cfg=knockdown_env_cfg(play=True, rendered_camera=True, **kwargs),
+        rl_cfg=knockdown_ppo_runner_cfg(),
+    )

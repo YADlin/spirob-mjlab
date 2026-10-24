@@ -1,4 +1,4 @@
-"""MDP terms for the SpiRob egg-knockdown task (contract v2).
+"""MDP terms for the SpiRob egg-knockdown task (contract v3).
 
 Actor information is limited to the camera/encoder contract. True egg state, robot keypoints,
 contact, visibility truth and randomised parameters are privileged (rewards, terminations, critic).
@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 ACTION_TERM = "cable_diff"
 CONTACT_SENSOR = "egg_robot_contact"
+FLOOR_CONTACT_SENSOR = "egg_floor_contact"
 EGG_SETTLED_Z = 0.0750           # egg root on the knockdown pedestal (CPU MuJoCo 3.8.1: 74.98 mm)
 PEDESTAL_ROOT_Z = 0.002
 POSE_TABLE = Path(__file__).resolve().parents[1] / "assets" / "knockdown" / "pose_table.json"
@@ -173,6 +174,14 @@ def reset_knockdown_episode(
         use = torch.isfinite(o).all(dim=-1)
         uv = torch.where(use[:, None], o, uv)
 
+    # Validate the actual override, not the discarded randomly sampled target.
+    clear = tab.clearance(idx, uv[:, None, :])[:, 0] > clearance_m
+    if ov_d is not None and (~clear & torch.isfinite(ov_d[env_ids])).any():
+        raise ValueError("Requested evaluation placement/start D violates reset clearance")
+    idx = torch.where(clear, idx, torch.full_like(idx, tab.zero))
+    if (tab.clearance(idx, uv[:, None, :])[:, 0] <= clearance_m).any():
+        raise ValueError("Requested egg placement is not clear even from a straight start")
+
     # 3. robot: joint state of the start shape, base height offset (real robot droops 12-20 mm)
     robot: Entity = env.scene["robot"]
     robot.write_joint_state_to_sim(tab.qpos[idx], torch.zeros_like(tab.qpos[idx]), env_ids=env_ids)
@@ -248,13 +257,17 @@ def egg_touched(env) -> torch.Tensor:
     return ((d.current_contact_time > 0) | (d.last_contact_time > 0)).any(dim=-1)
 
 
-def egg_below_support(env, spec: C.SuccessSpec = C.DEFAULT.success) -> torch.Tensor:
-    z = egg_pos_w(env)[:, 2] - env.scene.env_origins[:, 2]
-    return z < (spec.sim_support_top_z_m - spec.sim_fall_margin_m)
+def egg_on_floor(env) -> torch.Tensor:
+    """Actual floor contact, latched by substep contact-time history until reset."""
+    d = env.scene[FLOOR_CONTACT_SENSOR].data
+    return ((d.current_contact_time > 0) | (d.last_contact_time > 0)).any(dim=-1)
 
 
 def numerical_fault(env) -> torch.Tensor:
-    return ~torch.isfinite(env.sim.data.qacc).all(dim=-1) | ~torch.isfinite(egg_pos_w(env)).all(dim=-1)
+    return (~torch.isfinite(env.sim.data.qpos).all(dim=-1)
+            | ~torch.isfinite(env.sim.data.qvel).all(dim=-1)
+            | ~torch.isfinite(env.sim.data.qacc).all(dim=-1)
+            | ~torch.isfinite(egg_pos_w(env)).all(dim=-1))
 
 
 # precedence: numerical_fault > knocked_down > spontaneous_fall > egg_out_of_bounds > time_out
@@ -263,16 +276,22 @@ def term_numerical_fault(env):
 
 
 def term_knocked_down(env):
-    return ~numerical_fault(env) & egg_below_support(env) & egg_touched(env)
+    return ~numerical_fault(env) & egg_on_floor(env) & egg_touched(env)
 
 
 def term_spontaneous_fall(env):
-    return ~numerical_fault(env) & egg_below_support(env) & ~egg_touched(env)
+    return ~numerical_fault(env) & egg_on_floor(env) & ~egg_touched(env)
 
 
 def term_egg_out_of_bounds(env, xy_limit: float = 0.40):
     rel = egg_pos_w(env)[:, :2] - env.scene.env_origins[:, :2]
-    return ~numerical_fault(env) & ~egg_below_support(env) & (rel.abs() > xy_limit).any(dim=-1)
+    return ~numerical_fault(env) & ~egg_on_floor(env) & (rel.abs() > xy_limit).any(dim=-1)
+
+
+def term_time_out(env):
+    """Time-limit truncation only when no higher-priority terminal condition fired."""
+    return ((env.episode_length_buf >= env.max_episode_length)
+            & ~numerical_fault(env) & ~egg_on_floor(env) & ~term_egg_out_of_bounds(env))
 
 
 # ---------------------------------------------------------------------------

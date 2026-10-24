@@ -1,0 +1,107 @@
+{
+  "contract_id": "spirob-egg-knockdown/contract-v3",
+  "contract_sha256": "0173ebb0f11b0b269a692e30c8c8f86eaf855af18db3a4175a14e527865fdcc1",
+  "source_checkpoint": "/workspace/scratch/a8bc10f499b3/upload/model_299.pt",
+  "source_checkpoint_sha256": "094ffe13e4709397a6a68827e8a53e381e98e83a86b08dd577b733891f0a0eac",
+  "source_model_sha256": "fe7d13cd476a453c2842747a405c31450de638643f67d92593e3a095c4f671da",
+  "seed": 2,
+  "smoke": true,
+  "envs": 2,
+  "iterations": 1,
+  "perception": "MuJoCo-Warp RGB -> shared Lab black-egg detector",
+  "sensor_resolution": [
+    640,
+    360
+  ],
+  "common_speed_range_mm_s": [
+    5,
+    20
+  ],
+  "device": "cpu",
+  "git_commit": "ec3137659a94c123aa1bcdd082e87e126ca7a750",
+  "git_dirty": true,
+  "versions": {
+    "mjlab": "1.4.0",
+    "mujoco": "3.8.1",
+    "mujoco-warp": "3.8.1",
+    "warp-lang": "1.14.0",
+    "torch": "2.14.1",
+    "rsl-rl-lib": "5.2.0",
+    "opencv-python-headless": "5.0.0.93"
+  },
+  "agent": {
+    "seed": 2,
+    "num_steps_per_env": 2,
+    "max_iterations": 300,
+    "obs_groups": {
+      "actor": [
+        "actor"
+      ],
+      "critic": [
+        "critic"
+      ]
+    },
+    "save_interval": 25,
+    "experiment_name": "spirob_knockdown",
+    "run_name": "kd-camera-v3-smoke",
+    "logger": "tensorboard",
+    "wandb_project": "mjlab",
+    "wandb_tags": [],
+    "resume": false,
+    "load_run": ".*",
+    "load_checkpoint": "model_.*.pt",
+    "clip_actions": null,
+    "upload_model": true,
+    "class_name": "OnPolicyRunner",
+    "actor": {
+      "hidden_dims": [
+        128,
+        128
+      ],
+      "activation": "elu",
+      "obs_normalization": true,
+      "cnn_cfg": null,
+      "distribution_cfg": {
+        "class_name": "GaussianDistribution",
+        "init_std": 0.6,
+        "std_type": "scalar"
+      },
+      "rnn_type": null,
+      "rnn_hidden_dim": 256,
+      "rnn_num_layers": 1,
+      "class_name": "MLPModel"
+    },
+    "critic": {
+      "hidden_dims": [
+        256,
+        256
+      ],
+      "activation": "elu",
+      "obs_normalization": true,
+      "cnn_cfg": null,
+      "distribution_cfg": null,
+      "rnn_type": null,
+      "rnn_hidden_dim": 256,
+      "rnn_num_layers": 1,
+      "class_name": "MLPModel"
+    },
+    "algorithm": {
+      "num_learning_epochs": 1,
+      "num_mini_batches": 1,
+      "learning_rate": 0.0001,
+      "schedule": "fixed",
+      "gamma": 0.97,
+      "lam": 0.95,
+      "entropy_coef": 0.005,
+      "desired_kl": 0.01,
+      "max_grad_norm": 1.0,
+      "value_loss_coef": 1.0,
+      "use_clipped_value_loss": true,
+      "clip_param": 0.2,
+      "normalize_advantage_per_mini_batch": false,
+      "optimizer": "adam",
+      "share_cnn_encoders": false,
+      "class_name": "PPO"
+    }
+  }
+}

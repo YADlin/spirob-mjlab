@@ -119,12 +119,12 @@ def test_payouts_and_speed_rules():
     p = C.payouts_from_diff(np.array([0.04]))
     assert np.allclose(p, [a.mean_m + 0.02, a.mean_m - 0.02]) and np.isclose(C.diff_from_payouts(p)[0], 0.04)
     assert np.allclose(C.payouts_from_diff(torch.tensor([[0.04]])).numpy(), [[a.mean_m + 0.02, a.mean_m - 0.02]])
-    # speed is proportional to the step: a full 8 mm step runs at the ceiling, 1 mm at 1/8 of it
-    for v in (0.005, 0.010, 0.015):
+    # Both motors use the selected common speed even for small steps.
+    for v in (0.005, 0.0075, 0.010, 0.015, 0.020):
         assert np.isclose(C.cable_speed(np.array(0.008), v), v)
-        assert np.isclose(C.cable_speed(np.array(0.001), v), max(v / 8, a.min_cable_speed_m_s))
-    assert np.isclose(C.cable_speed(np.array(0.001), 0.015), 0.001875)
-    assert a.train_cable_speed_range_m_s[1] <= 0.015 + 1e-12
+        assert np.isclose(C.cable_speed(np.array(0.001), v), v)
+    assert np.isclose(C.cable_speed(np.array(0.001), 0.015), 0.015)
+    assert a.train_cable_speed_range_m_s[1] <= 0.020 + 1e-12
 
 
 def test_observation_parity():

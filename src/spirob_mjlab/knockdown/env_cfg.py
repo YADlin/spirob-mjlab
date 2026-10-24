@@ -1,4 +1,4 @@
-"""Environment configuration: Mjlab-SpiRob-EggKnockdown (contract v2).
+"""Environment configuration: Mjlab-SpiRob-EggKnockdown (contract v3).
 
 One environment step = one policy decision (1.2 s): physics 2 ms implicitfast, decimation 600.
 See docs/knockdown/DESIGN.md for the studies behind these settings.
@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 
 from mjlab.envs import ManagerBasedRlEnvCfg
-from mjlab.envs.mdp import dr, time_out
+from mjlab.envs.mdp import dr
 from mjlab.envs.mdp.events import reset_scene_to_default
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
@@ -33,8 +33,8 @@ DECIMATION = int(round(C.DEFAULT.action.decision_period_s / PHYSICS_DT))
 # Placement region in frame C [m] (docs/knockdown/reach_map_v2.png).
 TRAIN_ABS_U = (0.045, 0.140)
 TRAIN_V = (0.050, 0.180)
-EVAL_ABS_U = (0.050, 0.130)
-EVAL_V = (0.060, 0.170)
+EVAL_ABS_U = TRAIN_ABS_U
+EVAL_V = TRAIN_V
 FIXED_UV = (0.080, 0.110)
 
 
@@ -42,9 +42,11 @@ def _keypoints() -> SceneEntityCfg:
     return SceneEntityCfg("robot", body_names=LINK_BODY_NAMES, preserve_order=True)
 
 
-def _observations():
+def _observations(rendered_camera=False):
+    from spirob_mjlab.knockdown.camera import RenderedCameraObservation
+    actor = RenderedCameraObservation if rendered_camera else mdp.actor_contract_obs
     return {
-        "actor": ObservationGroupCfg({"contract": ObservationTermCfg(func=mdp.actor_contract_obs)}, enable_corruption=False),
+        "actor": ObservationGroupCfg({"contract": ObservationTermCfg(func=actor)}, enable_corruption=False),
         "critic": ObservationGroupCfg({"privileged": ObservationTermCfg(
             func=mdp.critic_privileged, params={"keypoint_cfg": _keypoints()})}, enable_corruption=False),
     }
@@ -55,6 +57,15 @@ def _contact_sensor() -> ContactSensorCfg:
         name=mdp.CONTACT_SENSOR,
         primary=ContactMatch(mode="subtree", pattern="egg", entity="egg"),
         secondary=ContactMatch(mode="subtree", pattern="robot_base", entity="robot"),
+        fields=("found",), reduce="none", num_slots=1, track_air_time=True)
+
+
+def _floor_contact_sensor() -> ContactSensorCfg:
+    # Contact time history is updated EVERY physics substep and survives separation.
+    return ContactSensorCfg(
+        name=mdp.FLOOR_CONTACT_SENSOR,
+        primary=ContactMatch(mode="subtree", pattern="egg", entity="egg"),
+        secondary=ContactMatch(mode="geom", pattern="terrain"),
         fields=("found",), reduce="none", num_slots=1, track_air_time=True)
 
 
@@ -84,7 +95,7 @@ def _events(region: str, fixed: bool, randomize: bool) -> dict[str, EventTermCfg
 
 
 def knockdown_env_cfg(*, play: bool = False, region: str = "train", fixed: bool = False,
-                      randomize: bool = True) -> ManagerBasedRlEnvCfg:
+                      randomize: bool = True, rendered_camera: bool = False) -> ManagerBasedRlEnvCfg:
     spec = C.DEFAULT
     rewards = {
         "knockdown": RewardTermCfg(func=mdp.knockdown_bonus, weight=10.0),
@@ -98,13 +109,23 @@ def knockdown_env_cfg(*, play: bool = False, region: str = "train", fixed: bool 
         "knocked_down": TerminationTermCfg(func=mdp.term_knocked_down),
         "spontaneous_fall": TerminationTermCfg(func=mdp.term_spontaneous_fall),
         "egg_out_of_bounds": TerminationTermCfg(func=mdp.term_egg_out_of_bounds),
-        "time_out": TerminationTermCfg(func=time_out, time_out=True),
+        "time_out": TerminationTermCfg(func=mdp.term_time_out, time_out=True),
     }
+    entities = {"robot": robot_cfg(), "pedestal": pedestal_cfg(), "egg": egg_cfg()}
+    sensors = (_contact_sensor(), _floor_contact_sensor())
+    terrain = TerrainEntityCfg(terrain_type="plane")
+    scene_style = None
+    if rendered_camera:
+        from spirob_mjlab.knockdown.camera import camera_entity, camera_sensor, style_scene
+        entities["camera"] = camera_entity()
+        sensors += (camera_sensor(),)
+        terrain.textures, terrain.materials = (), ()
+        scene_style = style_scene
     return ManagerBasedRlEnvCfg(
-        scene=SceneCfg(terrain=TerrainEntityCfg(terrain_type="plane"),
-                       entities={"robot": robot_cfg(), "pedestal": pedestal_cfg(), "egg": egg_cfg()},
-                       sensors=(_contact_sensor(),), num_envs=1 if play else 256, env_spacing=0.70),
-        observations=_observations(),
+        scene=SceneCfg(terrain=terrain, entities=entities, sensors=sensors,
+                       num_envs=1 if play else (32 if rendered_camera else 256), env_spacing=0.70,
+                       spec_fn=scene_style),
+        observations=_observations(rendered_camera),
         actions={mdp.ACTION_TERM: DifferenceWaypointActionCfg(
             entity_name="robot", actuator_names=CABLE_NAMES, preserve_order=True, spec=spec.action)},
         events=_events(region, fixed, randomize),

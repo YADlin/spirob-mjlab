@@ -1,0 +1,5 @@
+episode,u,v,start_diff_mm,side,outcome,decisions,touched,egg_offset_mm_before_end
+0,-0.045,0.05,-37.5,-u,knocked_down,14,True,8.37
+1,-0.045,0.0825,0.0,-u,knocked_down,5,True,5.45
+2,-0.045,0.115,0.0,-u,knocked_down,3,True,0.0
+3,-0.045,0.14750000000000002,0.0,-u,knocked_down,2,True,0.03

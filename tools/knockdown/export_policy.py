@@ -41,7 +41,7 @@ from spirob_mjlab.knockdown import mdp
 from spirob_mjlab.knockdown.entities import ROBOT_XML, SOURCE_XML, sha256 as file_sha
 from spirob_mjlab.knockdown.env_cfg import TRAIN_ABS_U, TRAIN_V
 
-TASK = "Mjlab-SpiRob-EggKnockdown"
+TASK = "Mjlab-SpiRob-EggKnockdown-Camera"
 
 
 def sha(path: Path) -> str:
@@ -102,7 +102,25 @@ def main():
     p.add_argument("--parity-envs", type=int, default=16)
     p.add_argument("--parity-steps", type=int, default=24)
     p.add_argument("--task", default=TASK)
+    p.add_argument("--checkpoint-contract-id", required=True,
+                   choices=["spirob-egg-knockdown/contract-v2", C.CONTRACT_ID],
+                   help="Contract used to TRAIN this checkpoint; do not relabel v2 weights as v3 training")
+    p.add_argument("--evaluation-summary", required=True,
+                   help="Passing randomized rendered-camera evaluation summary for these weights")
     a = p.parse_args()
+    evaluation = json.loads(Path(a.evaluation_summary).read_text())
+    perception_files = {name: sha(Path(C.__file__).with_name(name))
+                        for name in ("egg_vision.py", "camera_geometry.py")}
+    if (evaluation.get("checkpoint_sha256") != sha(Path(a.checkpoint))
+            or evaluation.get("contract_id") != C.CONTRACT_ID
+            or evaluation.get("contract_source_sha256") != C.source_file_sha256()
+            or evaluation.get("perception_files") != perception_files
+            or evaluation.get("source_model_sha256") != file_sha(SOURCE_XML)
+            or evaluation.get("perception") != "rendered_rgb_detector"
+            or evaluation.get("episodes", 0) < 200
+            or evaluation.get("nominal_dynamics", True)
+            or not evaluation.get("meets_target")):
+        p.error("Export needs a passing >=200-episode randomized camera evaluation for these weights, model and sensing code")
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=False)
     ckpt = Path(a.checkpoint).resolve()
@@ -139,6 +157,7 @@ def main():
     shutil.copy2(Path(C.__file__), out / "contract.py")
     shutil.copy2(Path(NP.__file__), out / "numpy_policy.py")
     shutil.copy2(mdp.POSE_TABLE, out / "pose_table.json")
+    shutil.copy2(a.evaluation_summary, out / "evaluation_summary.json")
     npp = NP.NumpyPolicy(out / "policy.npz")
     err = float(np.max(np.abs(npp(O) - A)))
     passed = err < 1e-4
@@ -146,6 +165,9 @@ def main():
 
     manifest = {
         "task": a.task,
+        "training_contract_id": a.checkpoint_contract_id,
+        "evaluation_summary_sha256": sha(out / "evaluation_summary.json"),
+        "perception_files": perception_files,
         "checkpoint": str(ckpt), "checkpoint_sha256": sha(ckpt),
         "policy_npz_sha256": sha(out / "policy.npz"),
         "contract_id": C.CONTRACT_ID, "contract_source_sha256": contract["contract_source_sha256"],

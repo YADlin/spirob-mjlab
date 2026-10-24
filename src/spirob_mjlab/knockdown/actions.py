@@ -1,15 +1,7 @@
-"""Difference waypoint action (contract v2): one 1-D action = cable difference D at fixed mean.
+"""Fixed-mean difference waypoints at the selected common speed (contract v3).
 
-Mirrors the Lab motor owner: per decision both cables move to (mean + D/2, mean - D/2), each at
-speed = clip(|cable step| / 0.8 s, 0.5 mm/s, v_max), then hold. v_max is sampled per episode over
-the deployment settings (4.5-15 mm/s) so one policy works at 5, 10 or 15 mm/s.
-
-Quantities (metres):
-  raw      policy output, shape (n, 1)
-  desired  80 mm * clip(raw)
-  limited  desired after the 8 mm step limit, +-80 mm bounds and 0.5 mm deadband
-  diff     simulated motor difference (what the encoders report)
-  payout   (mean + diff/2, mean - diff/2); MuJoCo tendon target = payout + reference offset
+Each cable moves half the D change at the same speed, then holds. The existing
+Lab motor owner dispatch/settle rules remain authoritative on hardware.
 """
 
 from __future__ import annotations

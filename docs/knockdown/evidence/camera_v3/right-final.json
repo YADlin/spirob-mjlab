@@ -1,0 +1,20 @@
+{
+  "outcome": "knocked_down",
+  "decisions": 5,
+  "simulated_seconds": 5.235999999999645,
+  "initial_diff_mm": 0.0,
+  "egg_uv": [
+    0.08,
+    0.11
+  ],
+  "common_speed_mm_s": 10.0,
+  "robot_egg_contact": true,
+  "egg_floor_contact": true,
+  "contract_id": "spirob-egg-knockdown/contract-v3",
+  "perception": "MuJoCo OpenGL RGB -> shared Lab detector",
+  "nominal_dynamics": true,
+  "checkpoint_sha256": "094ffe13e4709397a6a68827e8a53e381e98e83a86b08dd577b733891f0a0eac",
+  "source_model_sha256": "fe7d13cd476a453c2842747a405c31450de638643f67d92593e3a095c4f671da",
+  "hold_baseline": false,
+  "detector_sha256": "d35211012d212bd23709dfa02adefc62cf637f13588455bd393a11af9f35d6f9"
+}

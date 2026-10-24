@@ -1,14 +1,17 @@
-# Egg knockdown — design note (contract v2)
+# Egg knockdown — design note (contract v3)
 
-**Bottom line.** The policy moves the SpiRob with **one number, the cable difference
-D = L0 − L1**, while the cable mean stays at 227.35 mm. It sees only what the rig can
-see: the egg position from the overhead camera (with a visible/not-visible flag) and
-D from the motor encoders. Each decision is one point-to-point move of at most 8 mm
-in D. The move speed is capped by an operator-selected ceiling (5, 10 or 15 mm/s) and
-scaled to the move size, so small moves are slow, never sudden.
+Current commands and validation: [rendered camera workflow](CAMERA_V3.md).
 
-Checked by `tests/test_knockdown_contract.py` (19 tests) and the Lab's
-`tests/verify_rl_knockdown.py` (37 checks, closed loop through a MuJoCo twin).
+The actor uses seven camera/encoder/memory values and selects a cable difference
+D = L0 − L1 at fixed mean 227.35 mm. Each waypoint changes D by at most 8 mm.
+Both cables use the selected common speed (5–20 mm/s), including small moves.
+The motor owner waits for HOLD before accepting another target. This protocol is
+unchanged; no mid-motion retargeting or extra motion smoothing is introduced.
+
+The `-Camera` tasks render real MuJoCo-Warp RGB frames and run the shared Lab
+black-egg detector. The original task names remain geometric-proxy baselines.
+Contract v2 weights require evaluation under v3 before use; tensor compatibility
+alone does not establish behavioral compatibility.
 
 Drawings: [rig_geometry.png](rig_geometry.png) (camera and robot heights) and
 [egg_pedestal.png](egg_pedestal.png) (parts to print). Reach map: [reach_map_v2.png](reach_map_v2.png).
@@ -50,15 +53,15 @@ robot by a random 0–15 mm per episode to cover the droop.
 
 | # | Term | On the rig | In simulation | Scale |
 |---|---|---|---|---|
-| 0–1 | egg (u, v) | camera; last value held while not visible | true egg xy + bias (±3 mm/episode) + noise (1 mm) | /0.10 m |
-| 2 | egg visible | detector found it this frame | inside the camera rectangle | 1 |
+| 0–1 | egg (u, v) | camera; last value held while not visible | rendered RGB → black-egg detector → calibrated coordinates (`-Camera` tasks) | /0.10 m |
+| 2 | egg visible | detector found it this frame | detector found a component in this image | 1 |
 | 3–4 | egg (u, v) at episode start | camera, latched | same estimator at reset | /0.10 m |
 | 5 | D | encoders: payout0 − payout1 | simulated motor positions | /0.080 m |
 | 6 | previous action | policy memory | same | 1 |
 
 Not in the actor: touch, force, tension, joint angles, link positions, egg height.
 The critic gets 63 privileged numbers (true egg pose and velocity, link positions,
-tendon lengths, contact flag, robot drop, speed ceiling). It is not exported.
+tendon lengths, contact flag, robot drop, common speed). It is not exported.
 
 Frame C: origin at joint `link_002` at rest; u = model +x, v = model −y (base → tip).
 Base point (link_001) is at v = −12 mm. **D > 0 curls the robot toward −u.**
@@ -68,19 +71,18 @@ Base point (link_001) is at v = −12 mm. **D > 0 curls the robot toward −u.**
 ```
 raw a ─clip[-1,1]─► desired D = 80 mm·a ─step ≤ 8 mm─► limited D ─|ΔD| < 0.5 mm? → no move
                                                          │
-             per-cable speed = clip(vmax · |ΔD| / 8 mm, 0.5 mm/s, vmax)
+             per-cable speed = operator-selected common speed
                                                          │
    rig:  Lab 'independent' move to L0 = 227.35 + D/2, L1 = 227.35 − D/2 at that speed; wait for HOLD
    sim:  motor positions ramp at that speed; tendon target = payout + offset (±2 mm per episode)
 ```
 
-**Worked example (vmax = 15 mm/s).** A full 8 mm step in D moves each cable 4 mm
-at 15 mm/s → 0.27 s. A 1 mm step moves each cable 0.5 mm at 15/8 = 1.9 mm/s →
-also 0.27 s. Every move takes the same time, so a tiny correction is never a jerk.
-At vmax = 5 mm/s every move takes 0.8 s, inside the 1.2 s decision.
+**Example at 15 mm/s.** An 8 mm D step moves each cable 4 mm in 0.267 s.
+A 1 mm D step moves each cable 0.5 mm in 0.033 s. Both then hold.
 
-* Decision period 1.2 s (physics 2 ms × 600). 30 decisions per episode (36 s).
-* Training samples vmax in [4.5, 15] mm/s, so one policy works at all three settings.
+* Minimum decision period 1.2 s (physics 2 ms × 600); 30 decisions per episode.
+* Training samples common speed in [5, 20] mm/s. Hardware session limits still apply.
+* Actual hardware also waits for settled encoder telemetry and can take longer.
 * The episode can start at any D: in training 70 % of episodes start from a random
   curled shape taken from the pose table (`pose_table.json`, D every 2.5 mm), which is
   what happens on the rig when the robot stops after a knockdown.
@@ -95,7 +97,7 @@ at the moment the egg falls grows from 15 mm (|u| = 4 cm) to about 50 mm (|u| �
 | Region | abs u | v |
 |---|---|---|
 | Training | 45–140 mm | 50–180 mm |
-| Held-out evaluation | 50–130 mm | 60–170 mm |
+| Held-out evaluation | 45–140 mm | 50–180 mm |
 | Fixed smoke task | u = 80, v = 110 | |
 
 Every placement must clear the robot's start shape by > 25 mm (same rule on the rig).
@@ -115,8 +117,10 @@ Replace with the measured view after the camera re-alignment. Outside it the egg
 | commanded motion | −0.02 | per full 8 mm move |
 | time | −0.04 | per decision |
 
-Termination order: numerical fault › knocked down (egg below cup top − 5 mm and
-touched by the robot) › spontaneous fall › egg out of bounds › time-out.
+Termination order: numerical fault › actual egg–floor contact (success only after
+robot contact; otherwise spontaneous fall) › egg out of bounds › time-out. Contact
+history is updated each physics substep and survives separation until reset.
+A floor success or fault is never simultaneously marked as a time-limit truncation.
 
 **Rig success** (camera only), either:
 1. egg seen > 35 mm from its start for ≥ 0.5 s, or
@@ -146,7 +150,7 @@ a black egg (a black cup could, and success would then never be detected). The o
 look-alike for a black egg is a hard robot shadow, so use soft overhead light; the
 detector also rejects blobs of the wrong size or shape (Lab test: robot + shadow +
 empty cup in view → no egg reported). The policy never sees colours; they matter only
-for the Lab detector and its twin.
+for the shared detector in both rendered training and the Lab.
 
 ## 9. Commands
 

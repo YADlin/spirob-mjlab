@@ -1,0 +1,48 @@
+{
+  "task": "Mjlab-SpiRob-EggKnockdown-Camera-Eval",
+  "agent": "trained",
+  "checkpoint": "../upload/model_299.pt",
+  "checkpoint_sha256": "094ffe13e4709397a6a68827e8a53e381e98e83a86b08dd577b733891f0a0eac",
+  "episodes": 4,
+  "counts": {
+    "numerical_fault": 0,
+    "knocked_down": 4,
+    "spontaneous_fall": 0,
+    "egg_out_of_bounds": 0,
+    "time_out": 0,
+    "unknown": 0
+  },
+  "success_rate_all": 1.0,
+  "success_wilson95_all": [
+    0.5100999795960008,
+    1.0
+  ],
+  "valid_episodes": 4,
+  "success_rate_valid": 1.0,
+  "success_wilson95_valid": [
+    0.5100999795960008,
+    1.0
+  ],
+  "acceptance_target": ">= 190/200 successes (95%) on held-out placements",
+  "start_shape": "random tabulated shape with p=0.7 (the rig continues from where it stopped)",
+  "meets_target": false,
+  "placement_seed": 10001,
+  "sim_seed": 20001,
+  "nominal_dynamics": false,
+  "common_speed_mm_s": 10.0,
+  "contract_id": "spirob-egg-knockdown/contract-v3",
+  "eval_region": {
+    "abs_u_m": [
+      0.045,
+      0.14
+    ],
+    "v_m": [
+      0.05,
+      0.18
+    ]
+  },
+  "perception": "rendered_rgb_detector",
+  "median_decisions_success": 4.0,
+  "sample_rate_meets_95_percent": true,
+  "acceptance_metadata_note": "Corrected after run: >=200 episodes required. Episode measurements unchanged."
+}
