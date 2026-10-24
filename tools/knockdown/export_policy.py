@@ -6,6 +6,7 @@ Writes into --out (one folder = one deployable policy):
   contract.json        resolved contract (schema, order, units, action transform, timing)
   contract.py          verbatim copy of the contract source (hash in manifest)
   numpy_policy.py      verbatim copy of the deployment forward pass
+  pose_table.json      robot shapes over D (start shapes + Lab clearance check)
   parity_obs.npy       observations recorded from the simulator under the policy
   parity_actions.npy   torch actions for those observations
   manifest.json        hashes, versions, commit, checkpoint, parity result
@@ -36,7 +37,9 @@ from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
 from mjlab.tasks.registry import load_env_cfg, load_rl_cfg
 from spirob_mjlab.knockdown import contract as C
 from spirob_mjlab.knockdown import numpy_policy as NP
-from spirob_mjlab.knockdown.entities import lab_model_sha256
+from spirob_mjlab.knockdown import mdp
+from spirob_mjlab.knockdown.entities import ROBOT_XML, SOURCE_XML, sha256 as file_sha
+from spirob_mjlab.knockdown.env_cfg import TRAIN_ABS_U, TRAIN_V
 
 TASK = "Mjlab-SpiRob-EggKnockdown"
 
@@ -135,6 +138,7 @@ def main():
     np.save(out / "parity_actions.npy", A)
     shutil.copy2(Path(C.__file__), out / "contract.py")
     shutil.copy2(Path(NP.__file__), out / "numpy_policy.py")
+    shutil.copy2(mdp.POSE_TABLE, out / "pose_table.json")
     npp = NP.NumpyPolicy(out / "policy.npz")
     err = float(np.max(np.abs(npp(O) - A)))
     passed = err < 1e-4
@@ -146,7 +150,9 @@ def main():
         "policy_npz_sha256": sha(out / "policy.npz"),
         "contract_id": C.CONTRACT_ID, "contract_source_sha256": contract["contract_source_sha256"],
         "numpy_policy_sha256": sha(out / "numpy_policy.py"),
-        "lab_model_sha256": lab_model_sha256(),
+        "source_model_sha256": file_sha(SOURCE_XML), "knockdown_model_sha256": file_sha(ROBOT_XML),
+        "pose_table_sha256": sha(out / "pose_table.json"),
+        "region": {"abs_u_m": list(TRAIN_ABS_U), "v_m": list(TRAIN_V)},
         "obs_dim": npp.obs_dim, "act_dim": npp.act_dim,
         "parity": {"n_obs": int(O.shape[0]), "max_abs_error": err, "threshold": 1e-4, "passed": passed},
         "git_commit": git("rev-parse", "HEAD"), "git_dirty": bool(git("status", "--porcelain")),

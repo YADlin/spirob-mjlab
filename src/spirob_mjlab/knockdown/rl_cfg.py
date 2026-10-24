@@ -2,7 +2,7 @@
 
 Same algorithm settings as the Stage-1 baseline; differences are deliberate:
   - experiment_name 'spirob_knockdown' (separate log tree)
-  - num_steps_per_env 24 = one full episode of decisions per rollout
+  - num_steps_per_env 30 = one full episode of decisions per rollout
   - init_std 0.6: actions are absolute targets, 1.0 saturates the clip often
   - asymmetric critic: privileged 'critic' observation group
 """
@@ -28,6 +28,6 @@ def knockdown_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
         ),
         experiment_name="spirob_knockdown",
         save_interval=25,
-        num_steps_per_env=24,
+        num_steps_per_env=30,
         max_iterations=300,
     )

@@ -19,14 +19,14 @@ obs, _ = env.reset()
 print("obs", {k: tuple(v.shape) for k, v in obs.items()}, "actor_dim(contract)", C.DEFAULT.actor_dim)
 egg0 = mdp.egg_pos_w(env).clone(); uv0 = mdp.egg_uv_true(env).clone()
 print("egg_uv_true", uv0.tolist()); print("actor", obs["actor"][0].tolist())
-act = {"zero": torch.zeros(a.envs, 2), "curl_pos": torch.tensor([[-1.0, 1.0]]).repeat(a.envs, 1),
-       "curl_neg": torch.tensor([[1.0, -1.0]]).repeat(a.envs, 1)}
+act = {"zero": torch.zeros(a.envs, 1), "curl_pos": -torch.ones(a.envs, 1),   # D -> -80 mm curls toward +u
+       "curl_neg": torch.ones(a.envs, 1)}
 for k in range(a.steps):
     u = act.get(a.policy, None)
-    u = (2 * torch.rand(a.envs, 2) - 1) if u is None else u
+    u = (2 * torch.rand(a.envs, 1) - 1) if u is None else u
     t = time.time(); obs, r, term, trunc, info = env.step(u.to(env.device))
     at = env.action_manager.get_term(mdp.ACTION_TERM)
     tm = env.termination_manager
     fired = {n: tm.get_term(n).nonzero().flatten().tolist() for n in tm.active_terms if tm.get_term(n).any()}
-    print(f"step {k} wall {time.time()-t:.1f}s r={r.tolist()} payout_mm={(at.payout*1e3).round().tolist()} "
+    print(f"step {k} wall {time.time()-t:.1f}s r={r.tolist()} diff_mm={(at.diff*1e3).round().tolist()} vmax_mm_s={(at.vmax*1e3).round(decimals=1).tolist()} "
           f"egg_dz_mm={((mdp.egg_pos_w(env)[:,2]-egg0[:,2])*1e3).tolist()} touched={mdp.egg_touched(env).tolist()} term={fired}")

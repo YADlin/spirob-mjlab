@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 R = Path(__file__).resolve().parents[3]
-res = json.load(open(R / "docs/knockdown/reach_map.json"))
+res = json.load(open(R / "docs/knockdown/v1/reach_map.json"))
 cells = {}
 for r in res: cells.setdefault((r["u"], r["v"]), set()).add(r["status"])
 S = 20  # px per cm
@@ -47,4 +47,4 @@ for sym, label in (('<circle cx="{x}" cy="{y}" r="6" fill="#2a78d6"/>', "knocked
     o.append(f'<text x="{lx+11}" y="{ly+4}" fill="#52514e">{label}</text>'); lx += 118
 o.append("</svg>")
 svg = "".join(o)
-(R / "docs/knockdown/reach_map.svg").write_text(svg); print(len(svg), W, H)
+(R / "docs/knockdown/v1/reach_map.svg").write_text(svg); print(len(svg), W, H)

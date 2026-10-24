@@ -86,6 +86,7 @@ def main():
     if a.nominal:
         for k in ("joint_stiffness", "joint_damping", "egg_friction", "egg_mass"):
             env_cfg.events.pop(k, None)
+        env_cfg.events["episode"].params.update(start_shape_prob=0.0, robot_dz_range=(0.0, 0.0))
     n_env = min(a.envs, len(pts))
     env_cfg.scene.num_envs = n_env
     agent_cfg = load_rl_cfg(a.task)
@@ -96,7 +97,7 @@ def main():
         runner.load(a.checkpoint, load_cfg={"actor": True}, strict=True, map_location=a.device)
         policy = runner.get_inference_policy(device=a.device)
     else:
-        policy = lambda obs: torch.zeros(n_env, 2, device=a.device)  # noqa: E731
+        policy = lambda obs: torch.zeros(n_env, 1, device=a.device)  # noqa: E731
 
     rows = []
     tm = base.termination_manager
@@ -107,6 +108,7 @@ def main():
         base._kd_uv_override = ov
         obs, _ = base.reset()
         obs = env.get_observations()
+        start_diff = mdp.state(base).start_diff[:, 0].cpu().numpy().copy()
         done = np.zeros(n_env, dtype=bool)
         done[len(batch):] = True
         decisions = np.zeros(n_env, dtype=int)
@@ -121,6 +123,7 @@ def main():
             for i in np.nonzero(dones.cpu().numpy().astype(bool) & ~done)[0]:
                 outcome = next((k for k in OUTCOMES if fired[k][i]), "unknown")
                 rows.append(dict(episode=start + int(i), u=float(batch[i][0]), v=float(batch[i][1]),
+                                 start_diff_mm=round(float(start_diff[i]) * 1e3, 1),
                                  side="+u" if batch[i][0] > 0 else "-u", outcome=outcome,
                                  decisions=int(decisions[i]), touched=bool(touched_before[i] or outcome == "knocked_down"),
                                  egg_offset_mm_before_end=round(float(disp_before[i]) * 1e3, 2)))
@@ -144,6 +147,7 @@ def main():
         "valid_episodes": valid, "success_rate_valid": k / valid if valid else None,
         "success_wilson95_valid": wilson(k, valid) if valid else None,
         "acceptance_target": ">= 190/200 successes (95%) on held-out placements",
+        "start_shape": "straight" if a.nominal else "random tabulated shape with p=0.7 (the rig continues from where it stopped)",
         "meets_target": k >= math.ceil(0.95 * n),
         "placement_seed": a.placement_seed, "sim_seed": a.sim_seed, "nominal_dynamics": a.nominal,
         "eval_region": {"abs_u_m": EVAL_ABS_U, "v_m": EVAL_V},

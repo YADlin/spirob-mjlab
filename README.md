@@ -515,18 +515,22 @@ and the policy contract: [docs/knockdown/DESIGN.md](docs/knockdown/DESIGN.md).
 | `Mjlab-SpiRob-EggKnockdown` | randomized placement and dynamics (training) |
 | `Mjlab-SpiRob-EggKnockdown-Eval` | held-out evaluation region |
 
-Robot: the current Lab model (`assets/lab_model`, see `MODEL_MANIFEST.json`).
-Actor: 8 values from camera + encoders only. One step = one 1.0 s waypoint decision.
+Robot: `assets/knockdown/spirob_robot.xml`, derived from NYK's
+`spirob_robot_k2_2.148_20261024_0318.xml` (floor and lights removed; source kept in
+`assets/knockdown/source/`). The Lab must run the same source file.
+Action: one number, the cable difference D (±80 mm, ≤ 8 mm per decision, speed ceiling
+5/10/15 mm/s scaled to the move size). Actor: 7 values from camera + encoders only.
+One step = one 1.2 s decision; 30 decisions per episode.
 
 ```bash
-# fast checks (CPU, ~1 min)
+# fast checks (CPU, ~2 min; 19 tests)
 uv run --with pytest pytest -q tests/test_knockdown_contract.py
 # software smoke on GPU (10 iterations)
 uv run train Mjlab-SpiRob-EggKnockdown-Fixed --env.scene.num-envs 64 --agent.max-iterations 10 \
-  --agent.seed 1 --agent.logger tensorboard --agent.run-name kd-smoke
+  --agent.seed 1 --agent.logger tensorboard --agent.run-name kd-smoke-v2
 # training
 uv run train Mjlab-SpiRob-EggKnockdown --env.scene.num-envs 512 --agent.max-iterations 300 \
-  --agent.seed 1 --agent.logger tensorboard --agent.run-name kd-main-s1
+  --agent.seed 1 --agent.logger tensorboard --agent.run-name kd-main-v2-s1
 # held-out evaluation (200 episodes) and the no-action baseline
 uv run python tools/knockdown/evaluate.py --checkpoint logs/rsl_rl/spirob_knockdown/<run>/model_<i>.pt --out eval/<name>
 uv run python tools/knockdown/evaluate.py --agent zero --out eval/zero-baseline

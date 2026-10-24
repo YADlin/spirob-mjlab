@@ -1,18 +1,15 @@
-"""Waypoint cable action: one bounded point-to-point move per policy decision.
+"""Difference waypoint action (contract v2): one 1-D action = cable difference D at fixed mean.
 
-Mirrors the Lab motor owner (spirob-cable-studio/spirob_cable/rig.py): a new
-target is accepted only after both axes hold, and each axis travels to its
-target at a fixed commanded speed. The arithmetic for raw -> desired -> limited
-is imported from ``contract.py`` so simulation and hardware cannot diverge.
+Mirrors the Lab motor owner: per decision both cables move to (mean + D/2, mean - D/2), each at
+speed = clip(|cable step| / 0.8 s, 0.5 mm/s, v_max), then hold. v_max is sampled per episode over
+the deployment settings (4.5-15 mm/s) so one policy works at 5, 10 or 15 mm/s.
 
-Quantities (all model cable order, metres):
-  raw      : policy output (unclipped)
-  desired  : neutral + half_span * clip(raw)
-  limited  : desired after the per-decision step limit and bounds
-  payout   : simulated motor position (what the encoders report)
-  ctrl     : MuJoCo tendon-length target = payout + reference_offset
-The reference offset models the error between the declared physical rest and
-the model neutral; the actor never sees it.
+Quantities (metres):
+  raw      policy output, shape (n, 1)
+  desired  80 mm * clip(raw)
+  limited  desired after the 8 mm step limit, +-80 mm bounds and 0.5 mm deadband
+  diff     simulated motor difference (what the encoders report)
+  payout   (mean + diff/2, mean - diff/2); MuJoCo tendon target = payout + reference offset
 """
 
 from __future__ import annotations
@@ -31,91 +28,90 @@ if TYPE_CHECKING:
 
 
 @dataclass(kw_only=True)
-class WaypointCableActionCfg(TendonLengthActionCfg):
+class DifferenceWaypointActionCfg(TendonLengthActionCfg):
     spec: C.ActionSpec = C.DEFAULT.action
-    speed_scale_range: tuple[float, float] = (0.85, 1.05)
-    """Per-episode multiplier on the commanded speed (motor acceleration, rpm rounding)."""
     reference_offset_range_m: tuple[float, float] = (-0.002, 0.002)
-    """Per-episode, per-cable error between encoder payout and model tendon target."""
+    """Per-episode, per-cable error between encoder payout and model tendon target (unseen by the actor)."""
 
-    def build(self, env: "ManagerBasedRlEnv") -> "WaypointCableAction":
-        return WaypointCableAction(self, env)
+    def build(self, env: "ManagerBasedRlEnv") -> "DifferenceWaypointAction":
+        return DifferenceWaypointAction(self, env)
 
 
-class WaypointCableAction(TendonLengthAction):
-    cfg: WaypointCableActionCfg
+class DifferenceWaypointAction(TendonLengthAction):
+    cfg: DifferenceWaypointActionCfg
 
-    def __init__(self, cfg: WaypointCableActionCfg, env: "ManagerBasedRlEnv"):
+    def __init__(self, cfg: DifferenceWaypointActionCfg, env: "ManagerBasedRlEnv"):
         super().__init__(cfg=cfg, env=env)
-        if self.action_dim != 2:
-            raise ValueError("Knockdown contract expects exactly two cables")
-        spec = cfg.spec
-        travel_s = spec.max_step_m / (spec.move_speed_m_s * cfg.speed_scale_range[0])
-        if travel_s >= env.step_dt:
-            raise ValueError(
-                f"Slowest move ({travel_s:.3f} s) must finish inside one decision ({env.step_dt:.3f} s)")
-        if abs(env.step_dt - spec.decision_period_s) > 1e-9:
-            raise ValueError(
-                f"env.step_dt {env.step_dt} must equal contract decision period {spec.decision_period_s}")
+        if self._num_targets != 2:
+            raise ValueError("Knockdown contract expects two cables")
+        s = cfg.spec
+        slowest = (s.max_diff_step_m / 2) / s.train_cable_speed_range_m_s[0]
+        if slowest >= env.step_dt:
+            raise ValueError(f"Largest move at the slowest speed ({slowest:.2f} s) must fit in a decision ({env.step_dt} s)")
+        if abs(env.step_dt - s.decision_period_s) > 1e-9:
+            raise ValueError(f"env.step_dt {env.step_dt} != contract decision period {s.decision_period_s}")
         n, dev = self.num_envs, self.device
-        self._neutral = torch.tensor(spec.neutral_m, device=dev).repeat(n, 1)
-        self._prev_action = torch.zeros(n, 2, device=dev)
-        self._desired = self._neutral.clone()
-        self._limited = self._neutral.clone()
-        self._payout = self._neutral.clone()
-        self._speed = torch.full((n, 1), spec.move_speed_m_s, device=dev)
+        self._action_dim = 1
+        self._raw_actions = torch.zeros(n, 1, device=dev)
+        self._prev_action = torch.zeros(n, 1, device=dev)
+        self._desired = torch.zeros(n, 1, device=dev)
+        self._limited = torch.zeros(n, 1, device=dev)
+        self._diff = torch.zeros(n, 1, device=dev)
+        self._speed = torch.zeros(n, 1, device=dev)        # per-cable speed for the current move
+        self._vmax = torch.full((n, 1), s.cable_speed_max_m_s, device=dev)
         self._ref_offset = torch.zeros(n, 2, device=dev)
         self._physics_dt = env.physics_dt
-        self._processed_actions[:] = self._payout
+        self._processed_actions[:] = C.payouts_from_diff(self._diff, s)
 
     # -- exposed for observations / logging --------------------------------
     @property
-    def prev_action(self) -> torch.Tensor:
-        return self._prev_action
-
+    def prev_action(self): return self._prev_action
     @property
-    def payout(self) -> torch.Tensor:
-        return self._payout
-
+    def diff(self): return self._diff
     @property
-    def desired(self) -> torch.Tensor:
-        return self._desired
-
+    def payout(self): return C.payouts_from_diff(self._diff, self.cfg.spec)
     @property
-    def limited(self) -> torch.Tensor:
-        return self._limited
-
+    def limited(self): return self._limited
     @property
-    def reference_offset(self) -> torch.Tensor:
-        return self._ref_offset
+    def desired(self): return self._desired
+    @property
+    def reference_offset(self): return self._ref_offset
+    @property
+    def vmax(self): return self._vmax
 
     # -- mjlab hooks -------------------------------------------------------
     def process_actions(self, actions: torch.Tensor) -> None:
+        s = self.cfg.spec
         self._raw_actions[:] = actions
-        clipped = C.clip_raw(actions, self.cfg.spec)
-        self._desired[:] = C.desired_target(clipped, self.cfg.spec)
-        self._limited[:] = C.limited_target(self._desired, self._limited, self.cfg.spec)
+        clipped = C.clip_raw(actions, s)
+        self._desired[:] = C.desired_diff(clipped, s)
+        new = C.limited_diff(self._desired, self._limited, s)
+        self._speed[:] = C.cable_speed(new - self._diff, self._vmax, s)
+        self._limited[:] = new
         self._prev_action[:] = clipped
 
     def apply_actions(self) -> None:
-        step = self._speed * self._physics_dt
-        delta = torch.clamp(self._limited - self._payout, min=-step, max=step)
-        self._payout += delta
-        self._processed_actions[:] = self._payout + self._ref_offset
+        # each cable moves |dD|/2 at self._speed  ->  D changes at 2 * speed
+        step = 2 * self._speed * self._physics_dt
+        self._diff += torch.clamp(self._limited - self._diff, min=-step, max=step)
+        self._processed_actions[:] = C.payouts_from_diff(self._diff, self.cfg.spec) + self._ref_offset
         super().apply_actions()
 
     def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
         if env_ids is None:
             env_ids = slice(None)
         super().reset(env_ids=env_ids)
-        self._prev_action[env_ids] = 0.0
-        self._desired[env_ids] = self._neutral[env_ids]
-        self._limited[env_ids] = self._neutral[env_ids]
-        self._payout[env_ids] = self._neutral[env_ids]
         ids = torch.arange(self.num_envs, device=self.device)[env_ids]
         k = len(ids)
-        lo, hi = self.cfg.speed_scale_range
-        self._speed[ids, 0] = self.cfg.spec.move_speed_m_s * (lo + (hi - lo) * torch.rand(k, device=self.device))
+        s = self.cfg.spec
+        start = getattr(self._env, "_knockdown_state", None)
+        d0 = start.start_diff[ids] if start is not None else torch.zeros(k, 1, device=self.device)
+        self._diff[ids] = d0
+        self._limited[ids] = d0
+        self._desired[ids] = d0
+        self._prev_action[ids] = d0 / s.diff_limit_m      # contract: start memory = measured D / 80 mm
+        lo, hi = s.train_cable_speed_range_m_s
+        self._vmax[ids, 0] = lo + (hi - lo) * torch.rand(k, device=self.device)
         olo, ohi = self.cfg.reference_offset_range_m
         self._ref_offset[ids] = olo + (ohi - olo) * torch.rand(k, 2, device=self.device)
-        self._processed_actions[ids] = self._payout[ids] + self._ref_offset[ids]
+        self._processed_actions[ids] = C.payouts_from_diff(d0, s) + self._ref_offset[ids]

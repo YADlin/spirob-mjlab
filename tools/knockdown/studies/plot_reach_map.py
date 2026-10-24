@@ -5,7 +5,7 @@ import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 R = Path(__file__).resolve().parents[3]
-res = json.load(open(R / "docs/knockdown/reach_map.json"))
+res = json.load(open(R / "docs/knockdown/v1/reach_map.json"))
 sys.path.insert(0, str(R / "src"))
 from spirob_mjlab.knockdown.env_cfg import TRAIN_ABS_U, TRAIN_V, EVAL_ABS_U, EVAL_V
 PL = {"P01": (.055, .07), "P02": (.095, .07), "P03": (.075, .115), "P04": (.095, .115), "P05": (.055, .16), "P06": (.095, .16)}
@@ -42,6 +42,6 @@ ax.set_xlim(-21, 21); ax.set_ylim(-1, 24); ax.set_aspect("equal"); ax.grid(color
 for s in ax.spines.values(): s.set_color("#c3c2b7")
 ax.set_title("Where a full 20 mm/s curl knocks the egg off (Lab model, MuJoCo 3.8.1)", fontsize=10, color="#0b0b0b")
 ax.legend(fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.13), ncol=3, frameon=False)
-fig.tight_layout(); fig.savefig(R / "docs/knockdown/reach_map.png", dpi=160)
-plt.rcParams["svg.fonttype"] = "none"; fig.savefig(R / "docs/knockdown/reach_map.svg")
+fig.tight_layout(); fig.savefig(R / "docs/knockdown/v1/reach_map.png", dpi=160)
+plt.rcParams["svg.fonttype"] = "none"; fig.savefig(R / "docs/knockdown/v1/reach_map.svg")
 print("saved")

@@ -28,5 +28,5 @@ if __name__=='__main__':
     us=np.round(np.arange(-0.20,0.2001,0.02),3); vs=np.round(np.arange(0.0,0.2401,0.02),3)
     jobs=[(float(u),float(v),c) for u,v,c in itertools.product(us,vs,(0,1))]
     with Pool(2) as p: res=p.map(trial,jobs,chunksize=4)
-    json.dump(res,open(str(Path(__file__).resolve().parents[3]/'docs/knockdown/reach_map.json'),'w'))
+    json.dump(res,open(str(Path(__file__).resolve().parents[3]/'docs/knockdown/v1/reach_map.json'),'w'))
     from collections import Counter; print(Counter(r['status'] for r in res))

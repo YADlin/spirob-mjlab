@@ -17,8 +17,8 @@ TASK_EVAL = "Mjlab-SpiRob-EggKnockdown-Eval"
 
 register_mjlab_task(
     task_id=TASK_FIXED,
-    env_cfg=knockdown_env_cfg(fixed=True, randomize_dynamics=False),
-    play_env_cfg=knockdown_env_cfg(play=True, fixed=True, randomize_dynamics=False),
+    env_cfg=knockdown_env_cfg(fixed=True, randomize=False),
+    play_env_cfg=knockdown_env_cfg(play=True, fixed=True, randomize=False),
     rl_cfg=knockdown_ppo_runner_cfg(),
 )
 register_mjlab_task(
