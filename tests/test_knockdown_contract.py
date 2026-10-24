@@ -65,7 +65,9 @@ def test_pedestal_lowered_and_coloured():
     cup = s.geom("ped_cup").id
     top = d.geom_xpos[cup][2] + s.geom_size[cup][2] + mdp.PEDESTAL_ROOT_Z
     assert np.isclose(top, C.DEFAULT.success.sim_support_top_z_m, atol=1e-9)
-    assert np.allclose(s.geom_rgba[cup][:3], [0.12, 0.35, 0.78])
+    assert np.allclose(s.geom_rgba[cup][:3], [0.93, 0.93, 0.93])
+    egg = mujoco.MjSpec.from_file(str(EGG_XML)).compile()
+    assert np.allclose(egg.geom_rgba[:, :3], 0.06)
 
 
 def test_pose_table_matches_model():

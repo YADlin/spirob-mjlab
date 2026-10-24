@@ -530,7 +530,9 @@ uv run train Mjlab-SpiRob-EggKnockdown-Fixed --env.scene.num-envs 64 --agent.max
   --agent.seed 1 --agent.logger tensorboard --agent.run-name kd-smoke-v2
 # training
 uv run train Mjlab-SpiRob-EggKnockdown --env.scene.num-envs 512 --agent.max-iterations 300 \
-  --agent.seed 1 --agent.logger tensorboard --agent.run-name kd-main-v2-s1
+  --agent.seed 1 --agent.logger wandb --agent.wandb-project spirob-knockdown --agent.run-name kd-main-v2-s1
+# share a run for review (ZIP with config, scalar history and plots)
+uv run python tools/export_wandb_run_bundle.py --run ENTITY/spirob-knockdown/RUN_ID --output-root wandb_exports
 # held-out evaluation (200 episodes) and the no-action baseline
 uv run python tools/knockdown/evaluate.py --checkpoint logs/rsl_rl/spirob_knockdown/<run>/model_<i>.pt --out eval/<name>
 uv run python tools/knockdown/evaluate.py --agent zero --out eval/zero-baseline

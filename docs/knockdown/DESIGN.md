@@ -120,7 +120,7 @@ touched by the robot) › spontaneous fall › egg out of bounds › time-out.
 
 **Rig success** (camera only), either:
 1. egg seen > 35 mm from its start for ≥ 0.5 s, or
-2. the empty blue cup is seen at the start position with no egg within 35 mm for ≥ 0.7 s
+2. the empty white cup is seen at the start position with no egg within 35 mm for ≥ 0.7 s
    (covers an egg knocked out of frame).
 
 ## 7. Human-in-the-loop on the rig (auto-continue)
@@ -130,17 +130,23 @@ pedestal somewhere new. The next episode starts by itself once the scene has bee
 still for 2 s (hand gone), the egg has been stable within 2 mm, and it is > 25 mm from
 the robot. In training this is simply an episode reset from a random curled shape.
 
-## 8. Colours
+## 8. Colours (only white and black PLA available)
 
-| Object | Colour | Sim rgba | Hex |
-|---|---|---|---|
-| Robot | white (as built) | — | — |
-| Floor | cardboard brown | — | — |
-| Egg | saturated green | 0.16 0.67 0.31 | #29AB4F |
-| Pedestal | saturated blue | 0.12 0.35 0.78 | #1F59C7 |
+| Object | Colour | Sim rgba |
+|---|---|---|
+| Robot | white (as built) | — |
+| Floor | cardboard brown | — |
+| Egg | **black PLA** (matte if possible) | 0.06 0.06 0.06 |
+| Pedestal | **white PLA** | 0.93 0.93 0.93 |
 
-Green and blue are far in hue from brown and far in saturation from white; avoid
-red, orange or yellow (close to cardboard).
+Why this way round: the egg is the object tracked every frame, so it must stay a
+separate blob when the white robot touches it; black does, white would merge with the
+robot. The empty cup must never look like the egg; a white cup cannot be mistaken for
+a black egg (a black cup could, and success would then never be detected). The one
+look-alike for a black egg is a hard robot shadow, so use soft overhead light; the
+detector also rejects blobs of the wrong size or shape (Lab test: robot + shadow +
+empty cup in view → no egg reported). The policy never sees colours; they matter only
+for the Lab detector and its twin.
 
 ## 9. Commands
 

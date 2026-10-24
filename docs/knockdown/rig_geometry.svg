@@ -18,14 +18,14 @@
 <text x="72" y="452" fill="#eb6834" font-size="11">base point</text>
 <!-- pedestal + egg drawn at v = 110 (it actually sits 5-14 cm to the side) -->
 <g opacity="0.85">
-<rect x="226.8" y="474.4" width="19.2" height="45.6" fill="#1F59C7"/>
-<rect x="219.6" y="464.8" width="33.6" height="9.6" fill="#1F59C7"/>
-<rect x="222" y="460" width="28.8" height="4.8" fill="#29AB4F"/>
-<rect x="230.4" y="400" width="12" height="60" fill="#29AB4F"/>
-<circle cx="236.4" cy="415.6" r="24" fill="#29AB4F"/>
+<rect x="226.8" y="474.4" width="19.2" height="45.6" fill="#f4f4f2" stroke="#0b0b0b"/>
+<rect x="219.6" y="464.8" width="33.6" height="9.6" fill="#f4f4f2" stroke="#0b0b0b"/>
+<rect x="222" y="460" width="28.8" height="4.8" fill="#2a2a2a"/>
+<rect x="230.4" y="400" width="12" height="60" fill="#2a2a2a"/>
+<circle cx="236.4" cy="415.6" r="24" fill="#1a1a1a"/>
 </g>
-<text x="262" y="478" fill="#1F59C7" font-size="11">pedestal cup top 46</text>
-<text x="262" y="378" fill="#1d7a3a" font-size="11">egg top 107, cap centre 87</text>
+<text x="262" y="478" fill="#52514e" font-size="11">white pedestal, cup top 46</text>
+<text x="262" y="378" fill="#0b0b0b" font-size="11">black egg: top 107, cap centre 87</text>
 <!-- camera -->
 <rect x="233" y="128" width="30" height="16" fill="#0b0b0b"/>
 <text x="270" y="140" fill="#0b0b0b">camera, looking down</text>
@@ -73,6 +73,6 @@
 <text x="560" y="446" fill="#0b0b0b" font-size="11">Model: flat plane at 90 (base element 80–100).</text>
 <text x="560" y="464" fill="#0b0b0b" font-size="11">Training lowers the model 0–15 mm at random to cover the droop.</text>
 <text x="560" y="482" fill="#0b0b0b" font-size="11">Pedestal cup top 46 keeps ≥ 12 mm below the lowest real robot point.</text>
-<text x="560" y="512" fill="#52514e" font-size="10">Assumption to confirm: "same vertical plane" = camera centre directly above the</text>
+<text x="560" y="512" fill="#52514e" font-size="10">Confirmed by NYK (24 Oct): camera centre directly above the</text>
 <text x="560" y="526" fill="#52514e" font-size="10">robot's rest axis, 140 mm from the base point toward the tip.</text>
 </svg>

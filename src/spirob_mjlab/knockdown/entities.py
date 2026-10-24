@@ -2,8 +2,8 @@
 
 Robot   : assets/knockdown/spirob_robot.xml  - NYK's 24 Oct model (source/ kept verbatim) with the
           floor plane and lights removed, formatted like assets/spirob_robot.xml (scene from mjlab).
-Egg     : assets/knockdown/egg.xml       - spirob_egg.xml, green.
-Pedestal: assets/knockdown/pedestal.xml  - spirob_pedestal.xml, blue, 20 mm lower (fixed mocap prop).
+Egg     : assets/knockdown/egg.xml       - spirob_egg.xml, black.
+Pedestal: assets/knockdown/pedestal.xml  - spirob_pedestal.xml, white, 20 mm lower (fixed mocap prop).
 Regenerate with tools/knockdown/make_knockdown_assets.py; MODEL_MANIFEST.json records hashes.
 """
 

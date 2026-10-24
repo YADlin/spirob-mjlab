@@ -3,8 +3,8 @@
   assets/knockdown/source/spirob_robot_k2_2.148_20261024_0318.xml   (NYK, 24 Oct 2026; verbatim)
     -> assets/knockdown/spirob_robot.xml   remove floor plane + lights (mjlab supplies the scene,
                                            matching assets/spirob_robot.xml); everything else unchanged
-  assets/spirob_egg.xml      -> assets/knockdown/egg.xml       colour only (green, for the camera)
-  assets/spirob_pedestal.xml -> assets/knockdown/pedestal.xml  colour (blue) and shaft 20 mm shorter:
+  assets/spirob_egg.xml      -> assets/knockdown/egg.xml       colour only (matte black PLA, for the camera)
+  assets/spirob_pedestal.xml -> assets/knockdown/pedestal.xml  colour (white PLA) and shaft 20 mm shorter:
                                 cup top 46 mm instead of 66 mm above the table, so the real drooping
                                 robot (base top 88 mm, tip ~70 mm) meets the egg, not the pedestal.
 The original egg/pedestal/robot assets are not modified.
@@ -17,8 +17,11 @@ A = Path(__file__).resolve().parents[2] / "src" / "spirob_mjlab" / "assets"
 K = A / "knockdown"
 SOURCE = K / "source" / "spirob_robot_k2_2.148_20261024_0318.xml"
 
-EGG_RGBA = "0.16 0.67 0.31 1"       # saturated green  (#29AB4F)
-PEDESTAL_RGBA = "0.12 0.35 0.78 1"  # saturated blue   (#1F59C7)
+# Only white and black PLA are available (NYK, 24 Oct). Egg black: dark against the brown floor and
+# the white robot, so it stays a separate blob when the robot touches it. Pedestal white: differs from
+# the black egg, so an empty cup is never mistaken for the egg.
+EGG_RGBA = "0.06 0.06 0.06 1"       # black PLA  (#101010)
+PEDESTAL_RGBA = "0.93 0.93 0.93 1"  # white PLA  (#EDEDED)
 PEDESTAL_DROP_M = 0.020
 
 
@@ -54,7 +57,7 @@ def pedestal():
     s, n2 = re.subn(r'name="ped_cup" type="box" pos="0 0 0.06"', 'name="ped_cup" type="box" pos="0 0 0.04"', s)
     assert (n1, n2) == (1, 1)
     s = s.replace('<mujoco model="SpiRob_Pedestal">',
-                  '<!-- Knockdown copy of ../spirob_pedestal.xml: blue, and 20 mm lower (cup top 46 mm above the\n'
+                  '<!-- Knockdown copy of ../spirob_pedestal.xml: white, and 20 mm lower (cup top 46 mm above the\n'
                   '     table when the pedestal root sits at z = 2 mm) so the drooping real robot meets the egg. -->\n'
                   '<mujoco model="SpiRob_Pedestal_Knockdown">')
     (K / "pedestal.xml").write_text(s)
