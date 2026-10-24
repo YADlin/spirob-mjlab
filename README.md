@@ -502,3 +502,34 @@ are specified in [the S1 protocol](docs/protocols/S1.md).
 - [mjlab documentation](https://mujocolab.github.io/mjlab/)
 - [mjlab source repository](https://github.com/mujocolab/mjlab)
 - [SpiRobs: Logarithmic Spiral-shaped Robots for Versatile Grasping Across Scales](https://arxiv.org/abs/2303.09861)
+
+## Egg knockdown (camera + encoder policy for the physical rig)
+
+Separate task family for knocking the egg off its pedestal and deploying the policy
+through the SpiRob Lab. The egg-to-bucket task above is unchanged. Design, evidence
+and the policy contract: [docs/knockdown/DESIGN.md](docs/knockdown/DESIGN.md).
+
+| Task | Use |
+| --- | --- |
+| `Mjlab-SpiRob-EggKnockdown-Fixed` | one fixed placement, nominal dynamics (smoke tests) |
+| `Mjlab-SpiRob-EggKnockdown` | randomized placement and dynamics (training) |
+| `Mjlab-SpiRob-EggKnockdown-Eval` | held-out evaluation region |
+
+Robot: the current Lab model (`assets/lab_model`, see `MODEL_MANIFEST.json`).
+Actor: 8 values from camera + encoders only. One step = one 1.0 s waypoint decision.
+
+```bash
+# fast checks (CPU, ~1 min)
+uv run --with pytest pytest -q tests/test_knockdown_contract.py
+# software smoke on GPU (10 iterations)
+uv run train Mjlab-SpiRob-EggKnockdown-Fixed --env.scene.num-envs 64 --agent.max-iterations 10 \
+  --agent.seed 1 --agent.logger tensorboard --agent.run-name kd-smoke
+# training
+uv run train Mjlab-SpiRob-EggKnockdown --env.scene.num-envs 512 --agent.max-iterations 300 \
+  --agent.seed 1 --agent.logger tensorboard --agent.run-name kd-main-s1
+# held-out evaluation (200 episodes) and the no-action baseline
+uv run python tools/knockdown/evaluate.py --checkpoint logs/rsl_rl/spirob_knockdown/<run>/model_<i>.pt --out eval/<name>
+uv run python tools/knockdown/evaluate.py --agent zero --out eval/zero-baseline
+# export for the Lab (fails if NumPy/torch parity > 1e-4)
+uv run python tools/knockdown/export_policy.py --checkpoint <model.pt> --out exports/<name>
+```

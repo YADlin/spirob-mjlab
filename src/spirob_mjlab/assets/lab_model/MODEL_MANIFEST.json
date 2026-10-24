@@ -1,0 +1,29 @@
+{
+  "source": "YADlin/spirob-cable-studio lab/model (Lab v0.9.1)",
+  "source_commit": "a445a35ce318f6619c31b15d47243341ea87dcd7",
+  "copied": "2026-10-24",
+  "transform_for_mjlab": "floor plane geom removed at spec time (entities.lab_robot_spec); files unchanged",
+  "compiled_check_mujoco_3.8.1": {
+    "bodies": 23,
+    "joints": 21,
+    "tendons": 2,
+    "actuators": 2,
+    "sensors": 0,
+    "mass_kg": 0.053277,
+    "neutral_payout_m": [
+      0.22735331441047116,
+      0.2273533144104711
+    ],
+    "actuator_ctrlrange_m": [
+      0.15,
+      0.3
+    ],
+    "kp_N_m": 2500,
+    "kv_N_s_m": 20
+  },
+  "files_sha256": {
+    "meshes/link_001.stl": "7d1a1381d3aba7f6aa24abc2611992bcd0b7e196fb1aaaa55df4e53e6c69b27c",
+    "meshes/link_template.stl": "50d16c62e11939d093c2aac8c8fe5d0a1c84a21d9d3633752fa60f5ab9b8c203",
+    "spirob_robot.xml": "ac8d9f9dd36cc656228616904dcc64c409f3c17f6d917afe2115f13124f4a310"
+  }
+}

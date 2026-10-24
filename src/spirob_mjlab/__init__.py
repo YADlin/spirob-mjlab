@@ -19,3 +19,6 @@ register_mjlab_task(
     play_env_cfg=spirob_egg_to_bucket_stage1_env_cfg(play=True),
     rl_cfg=spirob_ppo_runner_cfg(),
 )
+
+# Egg-knockdown task (camera + encoder actor contract); registers its own tasks.
+from spirob_mjlab import knockdown  # noqa: E402,F401

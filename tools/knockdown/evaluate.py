@@ -1,0 +1,183 @@
+"""Frozen-policy evaluation of the knockdown task on held-out placements.
+
+Each environment runs exactly one episode per assigned placement; only the first
+termination of each episode is counted. All outcomes are retained.
+
+Placements (default 200): a 30-point boundary/interior grid of the evaluation
+rectangle on both sides, plus 170 uniform samples from it drawn with a held-out
+seed. Training never uses --placement-seed values >= 10000.
+
+Outcomes
+  knocked_down       success (egg below the support surface after robot contact)
+  time_out           task failure
+  egg_out_of_bounds  task failure
+  spontaneous_fall   invalid episode (egg fell without robot contact) - reported separately
+  numerical_fault    infrastructure fault - reported separately
+
+usage:
+  uv run python tools/knockdown/evaluate.py --checkpoint <model.pt> --out eval/<name> [--episodes 200]
+  uv run python tools/knockdown/evaluate.py --agent zero --out eval/zero_baseline     # no-action check
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import json
+import math
+from dataclasses import asdict
+from pathlib import Path
+
+import numpy as np
+import torch
+
+import spirob_mjlab  # noqa: F401
+from mjlab.envs import ManagerBasedRlEnv
+from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
+from mjlab.tasks.registry import load_env_cfg, load_rl_cfg
+from spirob_mjlab.knockdown import mdp
+from spirob_mjlab.knockdown.env_cfg import EVAL_ABS_U, EVAL_V
+
+OUTCOMES = ("numerical_fault", "knocked_down", "spontaneous_fall", "egg_out_of_bounds", "time_out")
+
+
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    if n == 0:
+        return (float("nan"), float("nan"))
+    p = k / n
+    d = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / d
+    h = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return (c - h, c + h)
+
+
+def placements(n: int, seed: int) -> np.ndarray:
+    grid = [(s * au, v) for s in (-1, 1) for au in (EVAL_ABS_U[0], sum(EVAL_ABS_U) / 2, EVAL_ABS_U[1])
+            for v in np.linspace(EVAL_V[0], EVAL_V[1], 5)]
+    rng = np.random.default_rng(seed)
+    k = max(0, n - len(grid))
+    rand = np.stack([rng.choice([-1.0, 1.0], k) * rng.uniform(*EVAL_ABS_U, k), rng.uniform(*EVAL_V, k)], axis=1)
+    pts = np.concatenate([np.array(grid), rand])[:n]
+    return pts
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--checkpoint")
+    p.add_argument("--agent", choices=["trained", "zero"], default="trained")
+    p.add_argument("--out", required=True)
+    p.add_argument("--episodes", type=int, default=200)
+    p.add_argument("--envs", type=int, default=100)
+    p.add_argument("--placement-seed", type=int, default=10001)
+    p.add_argument("--sim-seed", type=int, default=20001)
+    p.add_argument("--nominal", action="store_true", help="disable dynamics randomization")
+    p.add_argument("--device", default="cuda:0" if torch.cuda.is_available() else "cpu")
+    p.add_argument("--task", default="Mjlab-SpiRob-EggKnockdown-Eval")
+    a = p.parse_args()
+    if a.agent == "trained" and not a.checkpoint:
+        p.error("--checkpoint is required for --agent trained")
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=False)
+
+    pts = placements(a.episodes, a.placement_seed)
+    env_cfg = load_env_cfg(a.task)
+    env_cfg.seed = a.sim_seed
+    if a.nominal:
+        for k in ("joint_stiffness", "joint_damping", "egg_friction", "egg_mass"):
+            env_cfg.events.pop(k, None)
+    n_env = min(a.envs, len(pts))
+    env_cfg.scene.num_envs = n_env
+    agent_cfg = load_rl_cfg(a.task)
+    base = ManagerBasedRlEnv(env_cfg, device=a.device)
+    env = RslRlVecEnvWrapper(base, clip_actions=agent_cfg.clip_actions)
+    if a.agent == "trained":
+        runner = MjlabOnPolicyRunner(env, asdict(agent_cfg), device=a.device)
+        runner.load(a.checkpoint, load_cfg={"actor": True}, strict=True, map_location=a.device)
+        policy = runner.get_inference_policy(device=a.device)
+    else:
+        policy = lambda obs: torch.zeros(n_env, 2, device=a.device)  # noqa: E731
+
+    rows = []
+    tm = base.termination_manager
+    for start in range(0, len(pts), n_env):
+        batch = pts[start:start + n_env]
+        ov = torch.full((n_env, 2), float("nan"), device=a.device)
+        ov[: len(batch)] = torch.tensor(batch, dtype=torch.float32, device=a.device)
+        base._kd_uv_override = ov
+        obs, _ = base.reset()
+        obs = env.get_observations()
+        done = np.zeros(n_env, dtype=bool)
+        done[len(batch):] = True
+        decisions = np.zeros(n_env, dtype=int)
+        while not done.all():
+            with torch.inference_mode():
+                act = policy(obs)
+            touched_before = mdp.egg_touched(base).cpu().numpy()
+            disp_before = (mdp.egg_uv_true(base) - mdp.state(base).ped_uv).norm(dim=-1).cpu().numpy()
+            obs, _, dones, _ = env.step(act)
+            decisions += ~done
+            fired = {k: tm.get_term(k).cpu().numpy() for k in OUTCOMES}
+            for i in np.nonzero(dones.cpu().numpy().astype(bool) & ~done)[0]:
+                outcome = next((k for k in OUTCOMES if fired[k][i]), "unknown")
+                rows.append(dict(episode=start + int(i), u=float(batch[i][0]), v=float(batch[i][1]),
+                                 side="+u" if batch[i][0] > 0 else "-u", outcome=outcome,
+                                 decisions=int(decisions[i]), touched=bool(touched_before[i] or outcome == "knocked_down"),
+                                 egg_offset_mm_before_end=round(float(disp_before[i]) * 1e3, 2)))
+                done[i] = True
+        print(f"evaluated {min(start + n_env, len(pts))}/{len(pts)}", flush=True)
+
+    rows.sort(key=lambda r: r["episode"])
+    with (out / "episodes.csv").open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    counts = {k: sum(r["outcome"] == k for r in rows) for k in (*OUTCOMES, "unknown")}
+    n = len(rows)
+    k = counts["knocked_down"]
+    valid = n - counts["spontaneous_fall"] - counts["numerical_fault"]
+    summary = {
+        "task": a.task, "agent": a.agent, "checkpoint": a.checkpoint,
+        "checkpoint_sha256": hashlib.sha256(Path(a.checkpoint).read_bytes()).hexdigest() if a.checkpoint else None,
+        "episodes": n, "counts": counts,
+        "success_rate_all": k / n, "success_wilson95_all": wilson(k, n),
+        "valid_episodes": valid, "success_rate_valid": k / valid if valid else None,
+        "success_wilson95_valid": wilson(k, valid) if valid else None,
+        "acceptance_target": ">= 190/200 successes (95%) on held-out placements",
+        "meets_target": k >= math.ceil(0.95 * n),
+        "placement_seed": a.placement_seed, "sim_seed": a.sim_seed, "nominal_dynamics": a.nominal,
+        "eval_region": {"abs_u_m": EVAL_ABS_U, "v_m": EVAL_V},
+        "median_decisions_success": float(np.median([r["decisions"] for r in rows if r["outcome"] == "knocked_down"]))
+        if k else None,
+    }
+    (out / "summary.json").write_text(json.dumps(summary, indent=2))
+    print(json.dumps({"counts": counts, "success": f"{k}/{n}", "wilson95": summary["success_wilson95_all"]}))
+    try:
+        _plot(rows, out / "placements.png")
+    except Exception as exc:  # plotting is optional
+        print("plot skipped:", exc)
+
+
+def _plot(rows, path):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    colors = {"knocked_down": "#2a9d8f", "time_out": "#e76f51", "egg_out_of_bounds": "#f4a261",
+              "spontaneous_fall": "#8d99ae", "numerical_fault": "#000000", "unknown": "#9b5de5"}
+    fig, ax = plt.subplots(figsize=(6, 5))
+    for k, c in colors.items():
+        pts = [(r["u"], r["v"]) for r in rows if r["outcome"] == k]
+        if pts:
+            x, y = zip(*pts)
+            ax.scatter(np.array(x) * 100, np.array(y) * 100, s=18, c=c, label=f"{k} ({len(pts)})")
+    ax.axvline(0, color="#999", lw=0.8)
+    ax.set_xlabel("u [cm] (lateral, frame C)")
+    ax.set_ylabel("v [cm] (along rest backbone from joint 2)")
+    ax.set_aspect("equal")
+    ax.legend(fontsize=7, loc="upper left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+
+
+if __name__ == "__main__":
+    main()
