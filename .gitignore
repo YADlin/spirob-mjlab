@@ -15,4 +15,5 @@ checkpoints/
 *.onnx
 .DS_Store
 wandb_*.zip
-wandb_*/
+wandb_*/eval/
+exports/
