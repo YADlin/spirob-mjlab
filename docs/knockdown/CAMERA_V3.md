@@ -38,6 +38,61 @@ to evaluate or fine-tune, not an automatically approved hardware policy.
 The original task names use geometric camera proxies; choose a **Camera** task
 for the new image-driven workflow.
 
+## Interactive playback fix (25 October)
+
+Use the normal command to inspect movement before more training:
+
+```bash
+uv run play Mjlab-SpiRob-EggKnockdown-Camera --agent random
+```
+
+Previously, mjlab's viewer drew only the end of each 1.2-second decision. The
+user's screen recording changes robot shape at approximately 1.2-second
+intervals even though the desktop is recorded at 30 fps. The separate demo
+video showed intermediate physics steps; the ordinary `play` command did not.
+
+The project now supplies a `play` entry point that delegates to mjlab, with a
+viewer extension for the three Camera tasks. It draws real integrated states
+at 60 Hz (72 frames per decision) and paces them in wall time. The actor still
+runs once per 1.2 seconds; all 600 physics steps, camera observations, rewards,
+terminations, motor speeds and waypoint limits are unchanged. No interpolated
+poses are invented. Native and Viser viewers use the extension; Viser's own
+scene submission throttles its 60 Hz updates to about 30 Hz.
+
+Expect a visible movement followed by the real HOLD pause. Random actions may
+reverse direction and need not hit the egg. Smooth display is not evidence that
+a policy succeeds or that physical transfer is validated. Episode resets still
+jump to a new starting configuration. On a slow computer playback runs slower
+than real time instead of skipping the motion. Pause and speed controls work
+within a decision; reset/checkpoint changes apply at the next decision boundary.
+
+The terminal should print `[SpiRob play] Drawing intermediate physics states`.
+For the trained policy, replace `--agent random` with:
+
+```bash
+--checkpoint-file logs/rsl_rl/spirob_knockdown/kd-camera-v3-s2/model_99.pt
+```
+
+The headless regression uses the actual camera environment and native viewer
+sync methods, substituting an EGL recorder only for the desktop window:
+
+```bash
+MUJOCO_GL=egl uv run python tools/knockdown/check_playback.py --out outputs/playback-check
+```
+
+It compares identical random actions with and without rendering, including
+physics state, actor observations, rewards and done flags. This is a playback
+regression, not a training run or policy acceptance test. The standard `--video`
+recorder remains decision-rate; the fix here is interactive playback.
+
+Validation: 47 camera/contract/playback tests pass. The native-viewer sync path
+recorded four random decisions / 2,400 real physics steps / 289 frames (initial
+frame plus 72 per decision). Final states, actor observations, rewards and done
+flags exactly matched the same actions without the viewer (maximum error 0).
+See `evidence/playback_fix/` for the clip, frame trace and summary. This test ran
+on CPU with an EGL recorder replacing the desktop window; workstation CUDA and
+the actual desktop window still need NYK's playback check. No hardware was run.
+
 ## Verified here
 
 - Uploaded XML is byte-identical to training source, SHA-256
@@ -103,22 +158,39 @@ not infer acceptance from the training reward. Target: >=190/200 successes,
 with all faults/falls/timeouts retained. Repeat at the selected fixed hardware
 speed with `--cable-speed-mm-s 5` (or the intended setting) before deploying at it.
 
-## Fine-tune only if the new-camera evaluation needs it
+## Training workflow from the next run: standard CLI and W&B
+
+The completed `kd-camera-v3-s2` run used `tools/knockdown/train_camera.py` with
+local TensorBoard logging. Its `model_99.pt` is compatible with the registered
+Camera task. The helper remains for reproducing that historical run, but new
+training uses the standard CLI below, at NYK's request. Do not restart training
+merely to repair a viewer; check random playback first.
+
+When continuing training from that checkpoint:
 
 ```bash
-uv run python tools/knockdown/train_camera.py \
-  --checkpoint "$KD_CHECKPOINT" --out logs/rsl_rl/spirob_knockdown/kd-camera-v3-s2 \
-  --envs 32 --iterations 100 --seed 2 --device cuda:0
-uv run python tools/knockdown/evaluate.py \
-  --checkpoint logs/rsl_rl/spirob_knockdown/kd-camera-v3-s2/model_99.pt \
-  --task Mjlab-SpiRob-EggKnockdown-Camera-Eval --episodes 200 --envs 16 \
-  --out outputs/camera-v3-finetuned-eval --device cuda:0
+uv run train Mjlab-SpiRob-EggKnockdown-Camera \
+  --env.scene.num-envs 32 \
+  --agent.resume True \
+  --agent.load-run kd-camera-v3-s2 \
+  --agent.load-checkpoint model_99.pt \
+  --agent.max-iterations 100 \
+  --agent.seed 3 \
+  --agent.algorithm.learning-rate 0.0001 \
+  --agent.algorithm.schedule fixed \
+  --agent.run-name kd-camera-v3-s3 \
+  --agent.logger wandb \
+  --agent.wandb-project mjlab
 ```
 
-This initializes both networks and normalization from the supplied checkpoint,
-starts a fresh optimizer/iteration counter and writes a separate run. The normal
-camera training task remains available through mjlab's `train` command. Start
-with 32 image environments; increase only after measuring GPU memory/throughput.
+This resumes the learned networks, optimizer and saved iteration counter into
+a new timestamped run under `logs/rsl_rl/spirob_knockdown/`; the terminal prints
+the run folder and W&B URL. Unlike the historical helper, this uses mjlab's
+standard continuation behavior, including randomized initial episode lengths.
+The task chooses the environment; the checkpoint chooses the learned policy;
+the run name identifies this training session in the logs and W&B. Evaluate
+the newly produced checkpoint separately before export. Start with 32 image
+environments; increase only after measuring GPU memory/throughput.
 
 ## Export and Lab
 

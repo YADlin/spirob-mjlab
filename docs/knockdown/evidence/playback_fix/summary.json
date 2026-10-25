@@ -1,0 +1,19 @@
+{
+  "task": "Mjlab-SpiRob-EggKnockdown-Camera",
+  "agent": "random",
+  "device": "cpu",
+  "physics_steps": 2400,
+  "policy_calls": 4,
+  "frames": 289,
+  "frames_per_decision": 72,
+  "frame_rate": 60,
+  "decision_period_s": 1.2,
+  "max_state_observation_reward_error": 0.0,
+  "desktop_window": "replaced with EGL recorder; native sync methods unchanged",
+  "actions": [
+    -0.6039010286331177,
+    -0.09942495822906494,
+    -0.8181971311569214,
+    0.7743918895721436
+  ]
+}

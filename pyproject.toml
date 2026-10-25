@@ -16,5 +16,8 @@ dependencies = [
     "opencv-python-headless==5.0.0.93",
 ]
 
+[project.scripts]
+play = "spirob_mjlab.play:main"
+
 [project.entry-points."mjlab.tasks"]
 spirob_mjlab = "spirob_mjlab"
