@@ -7,6 +7,7 @@ import pytest
 import torch
 
 from spirob_mjlab.knockdown import contract as C, mdp
+from spirob_mjlab.knockdown import camera as camera_module
 from spirob_mjlab.knockdown.camera import WIDTH, HEIGHT, ImageTracker, RenderedCameraObservation, calibration
 from spirob_mjlab.knockdown.env_cfg import knockdown_env_cfg
 from spirob_mjlab.knockdown.plain_scene import build
@@ -75,6 +76,54 @@ def test_height_specific_egg_and_cup_maps():
         px = pp + (cam.c_to_px(uv) - pp) * (cam.camera_height_m - cam.plane_z_m)/(cam.camera_height_m-z)
         assert np.allclose(cam.px_to_c(px, feature_z_m=z), uv)
     assert cam.feature_z_m == .087
+
+
+@pytest.mark.parametrize("width,height", [(1920, 1080), (1456, 819), (640, 360)])
+def test_native_lab_coordinates_survive_full_image_resize(width, height):
+    native = calibration(1920, 1080)
+    resized = calibration(width, height)
+    # 150 mm reference at the calibration plane, not the unknown screenshot height.
+    points = np.array([[-.1, .05], [-.1, .2], [.14, .18]])
+    source_px = native.c_to_px(points)
+    assert np.linalg.norm(source_px[1] - source_px[0]) == pytest.approx(626.55)
+    resized_px = (source_px + .5) * (width / 1920) - .5
+    assert np.allclose(resized.c_to_px(points), resized_px, atol=1e-10)
+    assert np.allclose(resized.px_to_c_plane(resized_px), points, atol=1e-12)
+    # Height correction must also be independent of image resolution.
+    egg_px = np.array([[380., 550.], [1450., 850.]])
+    assert np.allclose(resized.px_to_c((egg_px+.5)*(width/1920)-.5), native.px_to_c(egg_px))
+
+
+def test_resize_rejects_cropping_or_stretching():
+    with pytest.raises(ValueError, match="field of view"):
+        calibration(640, 480)
+    with pytest.raises(ValueError, match="field of view"):
+        calibration(0, 0)
+
+
+@pytest.mark.parametrize("angle", [None, -.3, .3])
+def test_mujoco_projection_matches_lab_map_including_camera_roll(monkeypatch, angle):
+    # Nonzero rolls catch sign/axis errors that the almost-zero rig roll would hide.
+    if angle is not None:
+        monkeypatch.setitem(camera_module.PROFILE, "rotation_rad", angle)
+    m, d = build(camera=True)
+    cam = calibration()
+    cid = m.camera("overhead").id
+    rotation = d.cam_xmat[cid].reshape(3, 3)
+    focal = HEIGHT / (2 * np.tan(np.radians(m.cam_fovy[cid]) / 2))
+    points = np.array([[-.14, .05], [.045, .18], [.14, .11], [0., 0.]])
+    for height in (.09, .087, .046):
+        world = np.array([[*C.c_to_model_xy(u, v), height] for u, v in points])
+        local = (world - d.cam_xpos[cid]) @ rotation
+        px = np.asarray(cam.principal_point_px) + focal * local[:, :2] / -local[:, 2:3] * [1, -1]
+        assert np.allclose(cam.px_to_c(px, feature_z_m=height), points, atol=1e-10)
+
+
+def test_saved_lab_view_has_expected_metric_coverage():
+    manifest = camera_module.camera_manifest()
+    assert manifest["coverage_at_plane_m"] == pytest.approx([.45966004309312905, .2585587742398851])
+    assert manifest["fovy_deg"] == pytest.approx(58.467205529828625)
+    assert manifest["camera_centre_uv_m"] == pytest.approx([-.010866102256789563, .10181572478992003])
 
 
 def test_floor_history_survives_separation_and_resets():

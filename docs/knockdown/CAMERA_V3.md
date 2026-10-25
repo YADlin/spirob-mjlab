@@ -14,8 +14,9 @@ to evaluate or fine-tune, not an automatically approved hardware policy.
 ## What is implemented
 
 - `Mjlab-SpiRob-EggKnockdown-Camera`, `-Camera-Fixed`, `-Camera-Eval`: native
-  MuJoCo-Warp RGB camera, 640×360, provisional 54.12-degree vertical FOV,
-  camera at 321 mm. Its independent mocap body follows each environment origin,
+  MuJoCo-Warp RGB camera, 640×360, 58.467-degree vertical FOV derived from
+  NYK's 25 October saved Lab alignment at 1920×1080; camera at 321 mm.
+  Its independent mocap body follows each environment origin,
   without following randomized robot droop.
 - Shared `egg_vision.py` detects the black cap. Its largest-inscribed-disk centre
   avoids the centroid shift caused by an attached stem/shadow. The robot is
@@ -37,6 +38,90 @@ to evaluate or fine-tune, not an automatically approved hardware policy.
 
 The original task names use geometric camera proxies; choose a **Camera** task
 for the new image-driven workflow.
+
+## Next: evaluate the completed s3 checkpoint with the Lab camera view
+
+Run `kd-camera-v3-s3` finished on 25 October, W&B
+`p20242201-bits-pilani-goa-campus/mjlab/7lpmtbki`. It resumed `model_99.pt` for
+100 additional PPO updates (99–198), with 32 environments and seed 3. Its final
+checkpoint is `model_198.pt`. The reward remained broadly stable around 11;
+training counts are not a held-out success percentage. No further training is
+prescribed before the following test.
+
+```bash
+cd ~/Research_Work/spirob-mjlab
+uv run python tools/knockdown/evaluate.py \
+  --checkpoint logs/rsl_rl/spirob_knockdown/2026-10-25_18-39-21_kd-camera-v3-s3/model_198.pt \
+  --task Mjlab-SpiRob-EggKnockdown-Camera-Eval \
+  --episodes 200 --envs 16 --device cuda:0 \
+  --out outputs/kd-camera-v3-s3-aligned-eval
+```
+
+This runs the saved policy without learning on the existing held-out placement
+set. Success still requires robot contact followed by actual egg-floor contact.
+Return `summary.json` and `episodes.csv` from that output folder. The predeclared
+target remains at least 190/200. The historical 181/200 score belongs to the old
+v2 `model_299.pt`, not this checkpoint.
+
+The task name for training/play remains `Mjlab-SpiRob-EggKnockdown-Camera`.
+To inspect the learned motion with ordinary playback:
+
+```bash
+uv run play Mjlab-SpiRob-EggKnockdown-Camera \
+  --checkpoint-file logs/rsl_rl/spirob_knockdown/2026-10-25_18-39-21_kd-camera-v3-s3/model_198.pt
+```
+
+## Saved Lab camera alignment (25 October)
+
+`src/spirob_mjlab/knockdown/camera_profile.json` records the supplied Lab scale
+4177 px/m, rotation −0.000331613 rad and translation (1004.7467,114.2007) px.
+NYK expects a 1920×1080 live feed; the Lab Windows server explicitly requests
+that resolution. Source inspection found no resize in capture, packet transport
+or image decoding. The main and RL windows scale their displayed preview only;
+the detector uses the full decoded image. The exact stage producing the uploaded
+1456×819 copy is unknown. Its aspect ratio and approximately 475 px ruler span
+are consistent with resizing the full native image. The 150 mm reference was
+roughly at robot height, so this is a scale cross-check, not a precision lens fit.
+
+| Quantity | Previous provisional rendering | Saved Lab geometry now reproduced |
+| --- | --- | --- |
+| Coverage at z=90 mm | 419.56×236 mm | 459.66×258.56 mm |
+| Vertical / horizontal FOV | 54.118° / 84.487° | 58.467° / 89.709° |
+| Camera centre in frame C | (0,128) mm | (−10.866,101.816) mm |
+| Camera height | 321 mm | 321 mm |
+| Rendered image | 640×360 | 640×360 |
+
+Rendering and inverse pixel mapping use the same saved scale, base translation
+and rotation. A full-image resize uses `p_new=(p_old+0.5)*r-0.5`; the pixel scale
+also multiplies by `r`. Thus a smaller image retains the same metric workspace.
+Aspect changes are rejected. Centre-principal-point and perpendicular pinhole
+assumptions remain; distortion, live base registration and real egg localization
+still need a physical check. The supplied image does not override the saved base
+position. Its detector returned no egg, as expected for that frame without an egg.
+The absent `rl_vision.json` will be created when the Lab RL tab saves its settings.
+
+The old `contract.CameraSpec` rectangle is retained only for the original
+geometric-proxy tasks. The rendered-camera profile above is authoritative for
+the three Camera tasks. Shared action/observation contract and Lab detector code
+remain byte-identical, preserving checkpoint and Lab compatibility. Motors,
+move/HOLD timing, camera/encoder observation schema and task success are unchanged.
+
+Evaluation summaries now include the camera profile, resolved projection and
+source hashes. Export requires a matching passing evaluation and includes the
+profile, preventing a score under the previous view from approving a new view.
+
+Validation: 37 camera/playback/export checks passed (31 camera, 5 playback,
+1 export provenance). A native MuJoCo-Warp RGB smoke used two separated
+environment origins at reset and after one held-D decision: four detections,
+maximum position error 1.085 mm, and actor coordinates matched image detector
+coordinates. This was CPU-only sensing validation; no training or hardware ran,
+and it is not a policy success-rate result. Evidence and a sensor preview are in
+`evidence/camera_alignment_20261025/`. Reproduce it with:
+
+```bash
+MUJOCO_GL=egl uv run python tools/knockdown/check_camera_alignment.py \
+  --out outputs/camera-alignment-check
+```
 
 ## Interactive playback fix (25 October)
 

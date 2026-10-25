@@ -38,6 +38,7 @@ from mjlab.envs import ManagerBasedRlEnv
 from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
 from mjlab.tasks.registry import load_env_cfg, load_rl_cfg
 from spirob_mjlab.knockdown import mdp
+from spirob_mjlab.knockdown.camera import camera_manifest
 from spirob_mjlab.knockdown.env_cfg import EVAL_ABS_U, EVAL_V
 from spirob_mjlab.knockdown.entities import SOURCE_XML, sha256
 
@@ -175,6 +176,7 @@ def main():
         "git_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()),
         "eval_region": {"abs_u_m": EVAL_ABS_U, "v_m": EVAL_V},
         "perception": "rendered_rgb_detector" if "-Camera" in a.task else "geometric_proxy",
+        "rendered_camera": camera_manifest() if "-Camera" in a.task else None,
         "median_decisions_success": float(np.median([r["decisions"] for r in rows if r["outcome"] == "knocked_down"]))
         if k else None,
     }

@@ -38,6 +38,7 @@ from mjlab.tasks.registry import load_env_cfg, load_rl_cfg
 from spirob_mjlab.knockdown import contract as C
 from spirob_mjlab.knockdown import numpy_policy as NP
 from spirob_mjlab.knockdown import mdp
+from spirob_mjlab.knockdown.camera import camera_manifest, PROFILE_PATH
 from spirob_mjlab.knockdown.entities import ROBOT_XML, SOURCE_XML, sha256 as file_sha
 from spirob_mjlab.knockdown.env_cfg import TRAIN_ABS_U, TRAIN_V
 
@@ -115,12 +116,13 @@ def main():
             or evaluation.get("contract_id") != C.CONTRACT_ID
             or evaluation.get("contract_source_sha256") != C.source_file_sha256()
             or evaluation.get("perception_files") != perception_files
+            or evaluation.get("rendered_camera") != camera_manifest()
             or evaluation.get("source_model_sha256") != file_sha(SOURCE_XML)
             or evaluation.get("perception") != "rendered_rgb_detector"
             or evaluation.get("episodes", 0) < 200
             or evaluation.get("nominal_dynamics", True)
             or not evaluation.get("meets_target")):
-        p.error("Export needs a passing >=200-episode randomized camera evaluation for these weights, model and sensing code")
+        p.error("Export needs a passing >=200-episode randomized camera evaluation for these weights, model, sensing code and camera calibration")
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=False)
     ckpt = Path(a.checkpoint).resolve()
@@ -158,6 +160,7 @@ def main():
     shutil.copy2(Path(NP.__file__), out / "numpy_policy.py")
     shutil.copy2(mdp.POSE_TABLE, out / "pose_table.json")
     shutil.copy2(a.evaluation_summary, out / "evaluation_summary.json")
+    shutil.copy2(PROFILE_PATH, out / "camera_profile.json")
     npp = NP.NumpyPolicy(out / "policy.npz")
     err = float(np.max(np.abs(npp(O) - A)))
     passed = err < 1e-4
@@ -168,6 +171,7 @@ def main():
         "training_contract_id": a.checkpoint_contract_id,
         "evaluation_summary_sha256": sha(out / "evaluation_summary.json"),
         "perception_files": perception_files,
+        "rendered_camera": camera_manifest(),
         "checkpoint": str(ckpt), "checkpoint_sha256": sha(ckpt),
         "policy_npz_sha256": sha(out / "policy.npz"),
         "contract_id": C.CONTRACT_ID, "contract_source_sha256": contract["contract_source_sha256"],

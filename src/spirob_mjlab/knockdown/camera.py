@@ -7,6 +7,10 @@ the training sensor; MuJoCo's OpenGL renderer is used by the CPU demo/tests.
 from __future__ import annotations
 
 import math
+import hashlib
+import json
+from dataclasses import asdict
+from pathlib import Path
 
 import mujoco
 import numpy as np
@@ -20,22 +24,46 @@ from spirob_mjlab.knockdown.egg_vision import Colour, EggDetector
 
 SENSOR_NAME = "overhead_rgb"
 CAMERA_NAME = "overhead"
-WIDTH, HEIGHT = 640, 360
-PLANE_Z = 0.09
-EGG_FEATURE_Z = 0.087
-FOVY = math.degrees(2 * math.atan(C.DEFAULT.camera.visible_half_extent_uv_m[1]
-                                / (C.DEFAULT.camera.height_m - PLANE_Z)))
+PROFILE_PATH = Path(__file__).with_name("camera_profile.json")
+PROFILE = json.loads(PROFILE_PATH.read_text())
+NATIVE_WIDTH, NATIVE_HEIGHT = PROFILE["native_resolution_px"]
+WIDTH, HEIGHT = PROFILE["render_resolution_px"]
+PLANE_Z = PROFILE["plane_z_m"]
+EGG_FEATURE_Z = PROFILE["feature_z_m"]
+FOCAL_NATIVE_PX = PROFILE["pixels_per_m"] * (PROFILE["camera_height_m"] - PLANE_Z)
+FOVY = math.degrees(2 * math.atan(NATIVE_HEIGHT / (2 * FOCAL_NATIVE_PX)))
 FLOOR_RGBA = (0.50, 0.38, 0.26, 1.0)
 
 
-def calibration(width=WIDTH, height=HEIGHT, fovy=FOVY) -> CameraMap:
-    focal_px = height / (2 * math.tan(math.radians(fovy) / 2))
-    scale = focal_px / (C.DEFAULT.camera.height_m - PLANE_Z)
-    # MuJoCo image coordinates refer to pixel centres, not their edges.
-    pp = np.array([(width - 1) / 2, (height - 1) / 2])
-    translation = pp - scale * np.asarray(C.DEFAULT.camera.centre_uv_m)
-    return CameraMap(scale, 0.0, tuple(translation), PLANE_Z,
-                     C.DEFAULT.camera.height_m, tuple(pp), EGG_FEATURE_Z)
+def calibration(width=WIDTH, height=HEIGHT) -> CameraMap:
+    """Resize the saved native alignment without changing its physical view.
+
+    Native Lab coordinates are pixel centres. For a full-image resize by r,
+    p_new = (p_old + 0.5) * r - 0.5, for both translation and principal point.
+    Cropping or changing aspect ratio needs a new calibration, not stretching.
+    """
+    ratio = width / NATIVE_WIDTH
+    if width <= 0 or height <= 0 or not math.isclose(ratio, height / NATIVE_HEIGHT):
+        raise ValueError("Camera resolution must preserve the native 16:9 field of view")
+    translation = (np.asarray(PROFILE["translation_px"]) + 0.5) * ratio - 0.5
+    pp = ((width - 1) / 2, (height - 1) / 2)
+    return CameraMap(PROFILE["pixels_per_m"] * ratio, PROFILE["rotation_rad"],
+                     tuple(translation), PLANE_Z, PROFILE["camera_height_m"], pp, EGG_FEATURE_Z)
+
+
+def camera_manifest() -> dict:
+    """Bind an evaluation/export to the actual rendered view, not only the detector."""
+    cam = calibration()
+    native = calibration(NATIVE_WIDTH, NATIVE_HEIGHT)
+    value = dict(profile=PROFILE, render_map=asdict(cam),
+                 camera_centre_uv_m=cam.px_to_c_plane(cam.principal_point_px).tolist(),
+                 fovy_deg=FOVY,
+                 fovx_deg=math.degrees(2 * math.atan(NATIVE_WIDTH / (2 * FOCAL_NATIVE_PX))),
+                 coverage_at_plane_m=[NATIVE_WIDTH / native.pixels_per_m,
+                                      NATIVE_HEIGHT / native.pixels_per_m],
+                 source_sha256={p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                                for p in (Path(__file__), PROFILE_PATH)})
+    return json.loads(json.dumps(value))  # JSON-native lists for exact manifest comparisons
 
 
 def detector(camera: CameraMap) -> EggDetector:
@@ -45,10 +73,15 @@ def detector(camera: CameraMap) -> EggDetector:
 
 def add_camera(spec: mujoco.MjSpec, parent=None):
     parent = spec.worldbody if parent is None else parent
-    u, v = C.DEFAULT.camera.centre_uv_m
+    cam = calibration()
+    u, v = cam.px_to_c_plane(cam.principal_point_px)
     x, y = C.c_to_model_xy(u, v)
-    return parent.add_camera(name=CAMERA_NAME, pos=(x, y, C.DEFAULT.camera.height_m),
-                             quat=(1, 0, 0, 0), fovy=FOVY, resolution=(WIDTH, HEIGHT))
+    # Frame C has v = model -y, so a camera world-Z roll of theta produces
+    # the same image-plane R(theta) used by the Lab's similarity calibration.
+    half_angle = cam.rotation_rad / 2
+    return parent.add_camera(name=CAMERA_NAME, pos=(x, y, cam.camera_height_m),
+                             quat=(math.cos(half_angle), 0, 0, math.sin(half_angle)),
+                             fovy=FOVY, resolution=(WIDTH, HEIGHT))
 
 
 def camera_entity() -> EntityCfg:
@@ -109,6 +142,9 @@ class RenderedCameraObservation:
         self.device = env.device
         self.cached = None
         self.stamp = None
+        print(f"[SpiRob camera] Lab {NATIVE_WIDTH}x{NATIVE_HEIGHT} calibration -> "
+              f"{WIDTH}x{HEIGHT} RGB; vertical FOV {FOVY:.3f} deg; "
+              "full-image resize, same physical field of view", flush=True)
 
     def reset(self, env_ids=None):
         ids = range(len(self.trackers)) if env_ids is None else env_ids.tolist()

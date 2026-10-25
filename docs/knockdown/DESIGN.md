@@ -103,8 +103,11 @@ at the moment the egg falls grows from 15 mm (|u| = 4 cm) to about 50 mm (|u| �
 Every placement must clear the robot's start shape by > 25 mm (same rule on the rig).
 Hardware placements P01–P12 lie inside the evaluation region.
 
-**Camera view (provisional).** Centre (u, v) = (0, 128) mm, half-size 200 × 118 mm.
-Replace with the measured view after the camera re-alignment. Outside it the egg is
+**Legacy geometric-proxy view (provisional).** Centre (u, v) = (0, 128) mm,
+half-size 200 × 118 mm. The rendered `-Camera` tasks instead use the saved Lab
+alignment in `camera_profile.json`: 459.66×258.56 mm at the robot plane, centred
+at (−10.866,101.816) mm. See [CAMERA_V3.md](CAMERA_V3.md) for source and validation.
+Outside the legacy proxy rectangle the egg is
 "not visible" and the actor keeps the last seen position.
 
 ## 6. Reward, outcomes and success

@@ -1,0 +1,18 @@
+{
+  "native_resolution_px": [1920, 1080],
+  "render_resolution_px": [640, 360],
+  "pixels_per_m": 4177.0,
+  "rotation_rad": -0.0003316125578789226,
+  "translation_px": [1004.7466770248941, 114.20068980205465],
+  "plane_z_m": 0.09,
+  "camera_height_m": 0.321,
+  "feature_z_m": 0.087,
+  "provenance": {
+    "date": "2026-10-25",
+    "alignment": "NYK-supplied lab.local.json comparison_setup; native image pixels",
+    "native_resolution": "NYK expects 1920x1080; Lab Windows server explicitly requests 1920x1080. Live frame dimensions not yet read on the workstation.",
+    "reference": "NYK identifies a 150 mm ruler span roughly at robot height. The approximately 475 px span in the 1456x819 attachment agrees with uniform resizing from the native resolution.",
+    "projection": "Perpendicular pinhole camera, centred principal point, no lens-distortion fit. Uploaded frame is not used to overwrite the saved base alignment.",
+    "validation_scope": "Saved Lab geometry reproduced in simulation; physical egg localization and live base registration remain to be checked."
+  }
+}
